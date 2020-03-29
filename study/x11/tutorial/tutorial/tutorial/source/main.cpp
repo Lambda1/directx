@@ -1,4 +1,4 @@
-#include <Windows.h>
+#include "SystemClass.hpp"
 
 /*
 	_In_, _In_opt_: SAL
