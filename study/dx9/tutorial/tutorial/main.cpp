@@ -1,17 +1,8 @@
-#include <windows.h>    // include the basic windows header file
+#include <windows.h>
 
-// the entry point for any Windows program
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nShowCmd)
+int WINAPI WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd)
 {
-    // create a "Hello World" message box using MessageBox()
-    MessageBox(NULL,
-               "Hello World!",
-               "Just another Hello World program!",
-               MB_ICONEXCLAMATION | MB_OK);
+    MessageBox(NULL, "Hello World!", "Just another Hello World program!", MB_ICONEXCLAMATION | MB_OK);
 
-    // return 0 to Windows
     return 0;
 }
