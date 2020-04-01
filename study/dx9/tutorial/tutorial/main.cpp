@@ -3,15 +3,16 @@
 #include <windows.h>
 #include <d3d9.h>
 
-// D3DDevice
-LPDIRECT3D9 g_pD3D = nullptr;
-// rendering device
-LPDIRECT3DDEVICE9 g_pd3dDevice = nullptr;
+// IDirect3D9: デバイス作成や情報取得機能を提供
+IDirect3D9 *g_pD3D = nullptr;
+// IDirect3DDevice9: デバイス
+IDirect3DDevice9 *g_pd3dDevice = nullptr;
 
 HRESULT InitD3D(HWND hWnd)
 {
-	// D3Dオブジェクトの生成
-	if (nullptr == (g_pD3D = Direct3DCreate9(D3D_SDK_VERSION))) { return E_FAIL; }
+	// device初期化
+	g_pD3D = Direct3DCreate9(D3D_SDK_VERSION);
+	if (g_pD3D == nullptr) { return E_FAIL; }
 
 	D3DPRESENT_PARAMETERS d3dpp;
 	ZeroMemory(&d3dpp, sizeof(d3dpp));
@@ -19,9 +20,9 @@ HRESULT InitD3D(HWND hWnd)
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
 
-	if (FAILED(g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
-		D3DCREATE_SOFTWARE_VERTEXPROCESSING,
-		&d3dpp, &g_pd3dDevice)))
+	// device
+	HRESULT result = g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, &g_pd3dDevice);
+	if (FAILED(result))
 	{
 		return E_FAIL;
 	}
