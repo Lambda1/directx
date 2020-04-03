@@ -1,81 +1,92 @@
+#include <iostream>
 #include <string>
 
 #include <windows.h>
 #include <d3d9.h>
 
 // IDirect3D9: デバイス作成や情報取得機能を提供
-IDirect3D9 *g_pD3D = nullptr;
+IDirect3D9* p_direct3d = nullptr;
 // IDirect3DDevice9: デバイス
-IDirect3DDevice9 *g_pd3dDevice = nullptr;
+IDirect3DDevice9* p_direct3d_device = nullptr;
 
 HRESULT InitD3D(HWND hWnd)
 {
 	// device初期化
-	g_pD3D = Direct3DCreate9(D3D_SDK_VERSION);
-	if (g_pD3D == nullptr) { return E_FAIL; }
+	p_direct3d = Direct3DCreate9(D3D_SDK_VERSION);
+	if (p_direct3d == nullptr) { return E_FAIL; }
 
 	D3DPRESENT_PARAMETERS d3dpp;
 	ZeroMemory(&d3dpp, sizeof(d3dpp));
+	// スクリーンモード
 	d3dpp.Windowed = TRUE;
+	// ダブルバッファリング時のswap動作
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	// バックバッファの色数
 	d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
 
-	// device
-	HRESULT result = g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, &g_pd3dDevice);
-	if (FAILED(result))
-	{
-		return E_FAIL;
-	}
+	// CreateDevice
+	// 使用するグラフィックアダプタ, ハードウェア描画, アプリケーションハンドル, デバイス動作フラグ(ハード, ソフト), デバイスポインタ, 初期化デバイス
+	HRESULT result = p_direct3d->CreateDevice
+	(
+		D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
+		D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &p_direct3d_device
+	);
 
+	if (FAILED(result)) { return E_FAIL; }
 	return S_OK;
 }
 
+// 終了処理
 void Cleanup()
 {
-    if( g_pd3dDevice != NULL )
-        g_pd3dDevice->Release();
-
-    if( g_pD3D != NULL )
-        g_pD3D->Release();
+	// Direct3D: 解放処理
+	if (p_direct3d_device != nullptr){ p_direct3d_device->Release(); }
+	if (p_direct3d != nullptr) { p_direct3d->Release(); }
 }
 
 void Render()
 {
-    if( NULL == g_pd3dDevice )
-        return;
+	if (p_direct3d_device == nullptr)
+	{
+		return;
+	}
 
-    // Clear the backbuffer to a blue color
-    g_pd3dDevice->Clear( 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB( 0, 0, 255 ), 1.0f, 0 );
+	// 画面を白クリア
+	p_direct3d_device->Clear
+	(
+		0, nullptr, D3DCLEAR_TARGET,
+		D3DCOLOR_XRGB(255, 255, 255), 1.0f, 0
+	);
 
-    // Begin the scene
-    if( SUCCEEDED( g_pd3dDevice->BeginScene() ) )
-    {
-        // Rendering of scene objects can happen here
+	// Begin the scene
+	if (SUCCEEDED(p_direct3d_device->BeginScene()))
+	{
+		p_direct3d_device->EndScene();
+	}
 
-        // End the scene
-        g_pd3dDevice->EndScene();
-    }
-
-    // Present the backbuffer contents to the display
-    g_pd3dDevice->Present( NULL, NULL, NULL, NULL );
+	// Present the backbuffer contents to the display
+	p_direct3d_device->Present(NULL, NULL, NULL, NULL);
 }
 
-LRESULT WINAPI MsgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
+LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    switch( msg )
-    {
-        case WM_DESTROY:
-            Cleanup();
-            PostQuitMessage( 0 );
-            return 0;
+	// main loop
+	switch (msg)
+	{
+	// WM_DESTROY: ウィンドウ破棄時
+	case WM_DESTROY:
+		Cleanup();
+		PostQuitMessage(0);
+		return 0;
+	
+	// WM_PAINT: 最初にウィンドウが表示されたとき, ウィンドウを動かしたとき などにポスト
+	case WM_PAINT:
+		Render();
+		ValidateRect(hWnd, NULL);
+		return 0;
+	}
 
-        case WM_PAINT:
-            Render();
-            ValidateRect( hWnd, NULL );
-            return 0;
-    }
-
-    return DefWindowProc( hWnd, msg, wParam, lParam );
+	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 
@@ -94,23 +105,23 @@ int WINAPI WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, _
 	constexpr int width = 300, height = 300;
 	HWND hWnd = CreateWindow(window_title.c_str(), window_name.c_str(), WS_OVERLAPPEDWINDOW, default_x, default_y, width, height, GetDesktopWindow(), nullptr, window_class.hInstance, nullptr);
 
-    // Initialize Direct3D
-    if( SUCCEEDED( InitD3D( hWnd ) ) )
-    {
-        // Show the window
-        ShowWindow( hWnd, SW_SHOWDEFAULT );
-        UpdateWindow( hWnd );
+	// Initialize Direct3D
+	HRESULT init_direct3d_results = InitD3D(hWnd);
+	if (FAILED(init_direct3d_results)) { return 1; }
 
-        // Enter the message loop
-        MSG msg;
-        while( GetMessage( &msg, nullptr, 0, 0 ) )
-        {
-            TranslateMessage( &msg );
-            DispatchMessage( &msg );
-        }
-    }
+	// Show the window
+	ShowWindow(hWnd, SW_SHOWDEFAULT);
+	UpdateWindow(hWnd);
 
-    UnregisterClass("D3D Tutorial", window_class.hInstance );
+	// Enter the message loop
+	MSG msg;
+	while (GetMessage(&msg, nullptr, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+
+	UnregisterClass("D3D Tutorial", window_class.hInstance);
 
 	return 0;
 }
