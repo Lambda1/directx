@@ -24,7 +24,7 @@ private:
 private:
 	// コールバック関数
 	static LRESULT WINAPI MessageProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	void Init();
+	void InitDirect3D();
 	void CleanUp();
 	void Rendering();
 
