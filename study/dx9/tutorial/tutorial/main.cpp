@@ -121,7 +121,8 @@ int WINAPI WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, _
 		DispatchMessage(&msg);
 	}
 
-	UnregisterClass("D3D Tutorial", window_class.hInstance);
+	bool is_unregister = UnregisterClass(window_title.c_str(), window_class.hInstance);
+	std::cout << is_unregister << std::endl;
 
 	return 0;
 }
