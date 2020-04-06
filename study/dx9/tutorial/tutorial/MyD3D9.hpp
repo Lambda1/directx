@@ -20,6 +20,7 @@ private:
 	// Direct3D9関係
 	IDirect3D9* m_p_direct3d;              // IDirect3D9: デバイス作成や情報取得機能を提供
 	IDirect3DDevice9* m_p_direct3d_device; // IDirect3DDevice9: デバイス
+	D3DDISPLAYMODE m_direct3d_display_mode;
 
 private:
 	// コールバック関数
@@ -27,6 +28,8 @@ private:
 	void InitDirect3D();
 	void CleanUp();
 	void Rendering();
+
+	void OutputDirect3dDetail();
 
 public:
 	MyD3D9(const std::string &window_title, const int &width, const int &height);

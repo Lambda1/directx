@@ -29,6 +29,9 @@ MyD3D9::MyD3D9(const std::string& window_title, const int& width, const int& hei
 	// Show Window
 	ShowWindow(m_hwnd, SW_SHOWDEFAULT);
 	UpdateWindow(m_hwnd);
+
+	// 詳細出力
+	OutputDirect3dDetail();
 }
 
 MyD3D9::~MyD3D9()
@@ -58,6 +61,8 @@ LRESULT WINAPI MyD3D9::MessageProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 	case WM_PAINT:
 		ValidateRect(hWnd, nullptr);
 		return 0;
+	case WM_CREATE:
+		return 0;
 	default:
 		break;
 	}
@@ -77,6 +82,7 @@ void MyD3D9::InitDirect3D()
 
 	// インターフェース定義
 	D3DPRESENT_PARAMETERS d3d_pp;
+	ZeroMemory(&d3d_pp, sizeof(d3d_pp));
 	// ウィンドウモード
 	d3d_pp.Windowed = TRUE;
 	// バックバッファサイズ
@@ -117,6 +123,20 @@ void MyD3D9::InitDirect3D()
 	}
 }
 
+// Direct3D 描画処理
+void MyD3D9::Rendering()
+{
+    m_p_direct3d_device->Clear( 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(100, 100, 100), 1.0f, 0 );
+
+	if (SUCCEEDED(m_p_direct3d_device->BeginScene()))
+	{
+
+		m_p_direct3d_device->EndScene();
+	}
+
+	m_p_direct3d_device->Present(nullptr, nullptr, nullptr, nullptr);
+}
+
 // Direct3D 終了処理
 void MyD3D9::CleanUp()
 {
@@ -124,15 +144,19 @@ void MyD3D9::CleanUp()
 	if (m_p_direct3d) { m_p_direct3d->Release(); }
 }
 
+// Direct3D 詳細表示
+void MyD3D9::OutputDirect3dDetail()
+{
+	m_p_direct3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &m_direct3d_display_mode);
+	std::cout << "Resolution: " << m_direct3d_display_mode.Width << "*" << m_direct3d_display_mode.Height << std::endl;
+	std::cout << "Adapter: " << m_direct3d_display_mode.Format << std::endl;
+	std::cout << "RefleshRate: " << m_direct3d_display_mode.RefreshRate << std::endl;
+}
+
 // public
 
 // メイン処理
 void MyD3D9::MainLoop()
 {
-	MSG msg;
-	while (GetMessage(&msg, nullptr, 0, 0))
-	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
+	Rendering();
 }
