@@ -96,13 +96,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 // メイン処理
 void App()
 {
+	/* 画面クリア処理 */
+	// クリア色 (RGBA)
+	const float clear_color[] = { 0.0f, 0.0f, 0.5f, 1.0f };
 
+	// カラーバッファクリア
+	g_p_device_context->ClearRenderTargetView(g_p_rtv, clear_color);
+	// デプスステンシルバッファクリア
+	g_p_device_context->ClearDepthStencilView(g_p_dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	// 画面更新
+	g_p_swap_chain->Present(0, 0);
 }
 
 // エントリーポイント
 INT WINAPI WinMain(HINSTANCE h_inst, HINSTANCE h_prev_inst, LPSTR sz_str, INT i_cmd_show)
 {
-	// ウィンドウ作成
+	/* ウィンドウ作成 */
 	WNDCLASSEX wc = { 0 };
 
 	wc.cbSize = sizeof(wc);
@@ -117,6 +127,9 @@ INT WINAPI WinMain(HINSTANCE h_inst, HINSTANCE h_prev_inst, LPSTR sz_str, INT i_
 
 	ShowWindow(g_hWnd, SW_SHOW);
 	UpdateWindow(g_hWnd);
+
+	/* Direct3Dの初期化 */
+	if (FAILED(InitDirect3D())) { return 1; }
 
 	// メッセージループ
 	MSG msg = { 0 };
