@@ -98,7 +98,7 @@ void App()
 {
 	/* 画面クリア処理 */
 	// クリア色 (RGBA)
-	const float clear_color[] = { 0.0f, 0.0f, 0.5f, 1.0f };
+	const float clear_color[] = { 0.0f, 0.5f, 0.5f, 1.0f };
 
 	// カラーバッファクリア
 	g_p_device_context->ClearRenderTargetView(g_p_rtv, clear_color);
