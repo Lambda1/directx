@@ -197,11 +197,21 @@ void App()
 
 	/* Rendering */
 	D3DXMATRIX world, view, projection;
-
+	D3DXMATRIX scale, translate, rotation;
+	
+	// Scale
+	D3DXMatrixScaling(&scale, 2.0f, 1.0f, 1.0f);
+	// Translate
+	D3DXMatrixTranslation(&translate, 0.5f, 0.0f, 0.0f);
+	// Rotation
+	D3DXMatrixRotationY(&rotation, 3.14f/4.0f);
 	// world transform
 	D3DXMatrixIdentity(&world);
+
+	world = scale * rotation * translate;
+
 	// view transform
-	D3DXVECTOR3 v_eye_pt(0.0f, 1.0f, -2.0f);
+	D3DXVECTOR3 v_eye_pt(0.0f, 10.0f, -5.0f);
 	D3DXVECTOR3 v_lookat_pt(0.0f, 0.0f, 0.0f);
 	D3DXVECTOR3 v_up_vec(0.0f, 1.0f, 0.0f);
 	D3DXMatrixLookAtLH(&view, &v_eye_pt, &v_lookat_pt, &v_up_vec);
