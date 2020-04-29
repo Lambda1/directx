@@ -16,6 +16,8 @@
 #include <cassert>
 #include <chrono>
 
+#include <iostream>
+
 // Helper functions
 #include "./MyHelper.hpp"
 
@@ -79,3 +81,68 @@ void ParseCommandLineArguments()
 	// メモリ開放
 	::LocalFree(argv);
 }
+
+// DebugLayer
+void EnableDebugLayer()
+{
+#if defined(__DEBUG)
+	Microsoft::WRL::ComPtr<ID3D12Debug> debug_interface;
+	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface)));
+	debug_interface->EnableDebugLayer();
+#endif
+}
+
+// Window登録
+void RegisterWindowClass(HINSTANCE hInst, const wchar_t* window_class_name)
+{
+	WNDCLASSEXW window_class = {};
+
+	window_class.cbSize = sizeof(WNDCLASSEXW);
+	window_class.style = CS_HREDRAW | CS_VREDRAW;
+	window_class.lpfnWndProc = &WndProc;
+	window_class.cbClsExtra = 0;
+	window_class.cbWndExtra = 0;
+	window_class.hInstance = hInst;
+	window_class.hIcon = ::LoadIcon(hInst, nullptr);
+	window_class.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+	window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+	window_class.lpszMenuName = nullptr;
+	window_class.lpszClassName = window_class_name;
+	window_class.hIconSm = ::LoadIcon(hInst, nullptr);
+
+	static ATOM atom = ::RegisterClassExW(&window_class);
+	assert(atom > 0);
+}
+
+// Window作成
+HWND MyCreateWindow(const wchar_t* window_class_name, HINSTANCE hInst, const wchar_t* window_title, uint32_t width, uint32_t height)
+{
+	// スクリーンサイズ取得
+	int screen_width = ::GetSystemMetrics(SM_CXSCREEN);
+	int screen_height = ::GetSystemMetrics(SM_CYSCREEN);
+
+	std::cout << screen_width << " " << screen_height << std::endl;
+
+	RECT window_rect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+	::AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, FALSE);
+	
+	// window sizeの設定
+	int window_width = window_rect.right - window_rect.left;
+	int window_height = window_rect.bottom - window_rect.top;
+
+	// windowを画面内に収める
+	int window_x = std::max<int>(0, (screen_width - window_width) / 2);
+	int window_y = std::max<int>(0, (screen_height - window_height) / 2);
+
+	// window作成
+	HWND hWnd = ::CreateWindowExW
+	(
+		NULL, window_class_name, window_title, WS_OVERLAPPEDWINDOW,
+		window_x, window_y, window_width, window_height,
+		nullptr, nullptr, hInst, nullptr
+	);
+	assert(hWnd && "Failed to create window");
+
+	return hWnd;
+}
+
