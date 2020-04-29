@@ -146,3 +146,82 @@ HWND MyCreateWindow(const wchar_t* window_class_name, HINSTANCE hInst, const wch
 	return hWnd;
 }
 
+// DirectX12 Adapterの照会
+Microsoft::WRL::ComPtr<IDXGIAdapter4> GetAdapter(const bool use_warp)
+{
+	Microsoft::WRL::ComPtr<IDXGIFactory4> dxgi_factory;
+	UINT create_factory_flags = 0;
+#if defined(__DEBUG)
+	create_factory_flags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+	ThrowIfFailed(CreateDXGIFactory2(create_factory_flags, IID_PPV_ARGS(&dxgi_factory)));
+
+	Microsoft::WRL::ComPtr<IDXGIAdapter1> dxgi_adapter_1;
+	Microsoft::WRL::ComPtr<IDXGIAdapter4> dxgi_adapter_4;
+
+	if (use_warp)
+	{
+		ThrowIfFailed(dxgi_factory->EnumWarpAdapter(IID_PPV_ARGS(&dxgi_adapter_1)));
+		ThrowIfFailed(dxgi_adapter_1.As(&dxgi_adapter_4));
+	}
+	else
+	{
+		SIZE_T max_dedicated_video_memory = 0;
+		// 利用可能なGPUアダプタの列挙
+		for (UINT i = 0; dxgi_factory->EnumAdapters1(i, &dxgi_adapter_1) != DXGI_ERROR_NOT_FOUND; ++i)
+		{
+			DXGI_ADAPTER_DESC1 dxgi_adapter_desc1;
+			dxgi_adapter_1->GetDesc1(&dxgi_adapter_desc1);
+
+			if ((dxgi_adapter_desc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
+				SUCCEEDED(D3D12CreateDevice(dxgi_adapter_1.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr))&&
+				dxgi_adapter_desc1.DedicatedVideoMemory > max_dedicated_video_memory)
+			{
+				max_dedicated_video_memory = dxgi_adapter_desc1.DedicatedVideoMemory;
+				ThrowIfFailed(dxgi_adapter_1.As(&dxgi_adapter_4));
+			}
+		}
+	}
+	return dxgi_adapter_4;
+}
+
+// DirectX12デバイスの作成
+Microsoft::WRL::ComPtr<ID3D12Device2> CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
+{
+	Microsoft::WRL::ComPtr<ID3D12Device2> d3d12_device2;
+	ThrowIfFailed(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&d3d12_device2)));
+
+#if defined(__DEBUG)
+	// デバッグモード時にデバッグメッセージを表示
+	Microsoft::WRL::ComPtr<ID3D12InfoQueue> p_info_queue;
+	if (SUCCEEDED(d3d12_device2.As(&p_info_queue)))
+	{
+		p_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+		p_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+		p_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+
+		// メッセージカテゴリの抑制
+		// D3D12_MESSAGE_CATEGORY categories[0] = {};
+		// 重要度に応じてメッセージを抑制
+		D3D12_MESSAGE_SEVERITY severities[] = { D3D12_MESSAGE_SEVERITY_INFO };
+		// 個々のIDでメッセージを抑制
+		D3D12_MESSAGE_ID deny_ids[] = 
+		{
+			D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE, // 不明
+			D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,                       // グラフィックデバック中にキャプチャフレームをすると発生
+			D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,                     // グラフィックデバック中にキャプチャフレームをすると発生
+		};
+
+		D3D12_INFO_QUEUE_FILTER new_filter = {};
+		// new_filter.DenyList.NumCategories = _countof(categories);
+		// new_filter.DenyList.pCategoryList = categories;
+		new_filter.DenyList.NumSeverities = _countof(severities);
+		new_filter.DenyList.pSeverityList = severities;
+		new_filter.DenyList.NumIDs = _countof(deny_ids);
+		new_filter.DenyList.pIDList = deny_ids;
+
+		ThrowIfFailed(p_info_queue->PushStorageFilter(&new_filter));
+	}
+#endif
+	return d3d12_device2;
+}
