@@ -53,7 +53,22 @@ void my_lib::D3D12AppBase::SetWARPDevice(const Microsoft::WRL::ComPtr<IDXGIFacto
 	factory->EnumWarpAdapter(IID_PPV_ARGS(&warp_device));
 }
 
-// public
+/* protected */
+
+// ディスクリプタヒープの準備
+void my_lib::D3D12AppBase::PrepareDescriptorHeaps()
+{
+	HRESULT hr = FALSE;
+	
+	// RenderTargetView(RTV)用ディスクリプタヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC rtv_heap_desc{ D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frame_buffer_count, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0 };
+	hr = m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(&m_rtv_heap));
+	if (FAILED(hr)) { std::runtime_error("CreateDescriptorHeap is failed."); }
+	m_rtv_descripter_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+}
+
+/* public */
+
 void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 {
 	HRESULT hr = FALSE;
@@ -102,6 +117,9 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain;
 	factory->CreateSwapChainForHwnd(m_command_queue.Get(), hWnd, &swap_chain_desc, nullptr, nullptr, &swap_chain);
 	swap_chain.As(&m_swap_chain);
+
+	// ディスクリプタヒープ準備
+	PrepareDescriptorHeaps();
 }
 
 void my_lib::D3D12AppBase::Terminate()

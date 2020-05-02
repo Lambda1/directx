@@ -25,7 +25,12 @@ namespace my_lib
 		Microsoft::WRL::ComPtr<ID3D12Device> m_device;
 		Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_command_queue;
 		Microsoft::WRL::ComPtr<IDXGISwapChain4> m_swap_chain;
-	
+		
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heap, m_dsv_heap;
+		UINT m_rtv_descripter_size;
+
+		virtual void PrepareDescriptorHeaps();
+
 	private:
 		// DebugLayer—LŒø‰»
 		void DebugMode(UINT *dxgi_flags);
