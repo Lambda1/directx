@@ -83,6 +83,25 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	// コマンドキュー生成
 	D3D12_COMMAND_QUEUE_DESC queue_desc{ D3D12_COMMAND_LIST_TYPE_DIRECT, 0, D3D12_COMMAND_QUEUE_FLAG_NONE, 0 };
 	m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_command_queue));
+
+	// HWNDからクライアント領域サイズを取得
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	const int width = rect.right - rect.left;
+	const int height = rect.bottom - rect.top;
+	
+	// スワップチェイン生成
+	DXGI_SWAP_CHAIN_DESC1 swap_chain_desc{};
+	swap_chain_desc.BufferCount = m_frame_buffer_count;
+	swap_chain_desc.Width = width;
+	swap_chain_desc.Height = height;
+	swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swap_chain_desc.SampleDesc.Count = 1;
+	Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain;
+	factory->CreateSwapChainForHwnd(m_command_queue.Get(), hWnd, &swap_chain_desc, nullptr, nullptr, &swap_chain);
+	swap_chain.As(&m_swap_chain);
 }
 
 void my_lib::D3D12AppBase::Terminate()

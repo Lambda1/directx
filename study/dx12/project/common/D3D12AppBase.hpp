@@ -24,6 +24,7 @@ namespace my_lib
 	protected:
 		Microsoft::WRL::ComPtr<ID3D12Device> m_device;
 		Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_command_queue;
+		Microsoft::WRL::ComPtr<IDXGISwapChain4> m_swap_chain;
 	
 	private:
 		// DebugLayer—LŒø‰»
