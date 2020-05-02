@@ -63,7 +63,7 @@ void my_lib::D3D12AppBase::PrepareDescriptorHeaps()
 	// RenderTargetView(RTV)用ディスクリプタヒープ
 	D3D12_DESCRIPTOR_HEAP_DESC rtv_heap_desc{ D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frame_buffer_count, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0 };
 	hr = m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(&m_rtv_heap));
-	if (FAILED(hr)) { std::runtime_error("CreateDescriptorHeap is failed."); }
+	if (FAILED(hr)) { throw std::runtime_error("CreateDescriptorHeap is failed."); }
 	m_rtv_descripter_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 }
 
@@ -82,7 +82,7 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	// DXGI Factory生成
 	Microsoft::WRL::ComPtr<IDXGIFactory3> factory;
 	hr = CreateDXGIFactory2(dxgi_flags, IID_PPV_ARGS(&factory));
-	if (FAILED(hr)) { std::runtime_error("CreateDXGIFactory2 is failed."); }
+	if (FAILED(hr)) { throw std::runtime_error("CreateDXGIFactory2 is failed."); }
 
 	// D3D12デバイス生成
 	Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter = SearchHardwareAdapter(factory);
@@ -93,7 +93,7 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	// TODO: ハードウェアアダプタがない場合, WARPを設定
 	else { std::cout << "DirectX12 Harware error." << std::endl; }
 	hr = D3D12CreateDevice(use_adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device));
-	if (FAILED(hr)) { std::runtime_error("D3D12CreateDevice is failed.");	}
+	if (FAILED(hr)) { throw std::runtime_error("D3D12CreateDevice is failed.");	}
 
 	// コマンドキュー生成
 	D3D12_COMMAND_QUEUE_DESC queue_desc{ D3D12_COMMAND_LIST_TYPE_DIRECT, 0, D3D12_COMMAND_QUEUE_FLAG_NONE, 0 };
