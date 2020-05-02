@@ -72,19 +72,17 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	// D3D12デバイス生成
 	Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter = SearchHardwareAdapter(factory);
 	Microsoft::WRL::ComPtr<IDXGIAdapter1> use_adapter;
-	if (adapter.Get())
-	{
-		// ハードウェアアダプタ設定
-		adapter.As(&use_adapter);
-	}
-	else
-	{
-		// WARP設定
-		// TODO: ハードウェアアダプタがない場合, WARPを設定
-		std::cout << "DirectX12 Harware error." << std::endl;
-	}
+	// ハードウェアアダプタ設定
+	if (adapter.Get()) { adapter.As(&use_adapter); }
+	// WARP設定
+	// TODO: ハードウェアアダプタがない場合, WARPを設定
+	else { std::cout << "DirectX12 Harware error." << std::endl; }
 	hr = D3D12CreateDevice(use_adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device));
 	if (FAILED(hr)) { std::runtime_error("D3D12CreateDevice is failed.");	}
+
+	// コマンドキュー生成
+	D3D12_COMMAND_QUEUE_DESC queue_desc{ D3D12_COMMAND_LIST_TYPE_DIRECT, 0, D3D12_COMMAND_QUEUE_FLAG_NONE, 0 };
+	m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_command_queue));
 }
 
 void my_lib::D3D12AppBase::Terminate()

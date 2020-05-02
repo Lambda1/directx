@@ -23,6 +23,7 @@ namespace my_lib
 	private:
 	protected:
 		Microsoft::WRL::ComPtr<ID3D12Device> m_device;
+		Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_command_queue;
 	
 	private:
 		// DebugLayer—LŒø‰»
