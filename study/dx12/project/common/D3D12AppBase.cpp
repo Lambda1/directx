@@ -116,6 +116,12 @@ void my_lib::D3D12AppBase::CreateDepthBuffer(const int& width, const int& height
 		&depth_clear_value,
 		IID_PPV_ARGS(&m_depth_buffer)
 	);
+
+	// DSV¶¬
+	// D3D12_DEPTH_STENCIL_VIEW_DESC: format, view dimension, flags, D3D12_TEX2D_DSV(MipSlice)
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{ DXGI_FORMAT_D32_FLOAT, D3D12_DSV_DIMENSION_TEXTURE2D, D3D12_DSV_FLAG_NONE, {0} };
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsv_handle(m_dsv_heap->GetCPUDescriptorHandleForHeapStart());
+	m_device->CreateDepthStencilView(m_depth_buffer.Get(), &dsv_desc, dsv_handle);
 }
 
 /* public */
