@@ -36,8 +36,10 @@ namespace my_lib
 		Microsoft::WRL::ComPtr<ID3D12Resource1> m_depth_buffer;
 		
 		std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> m_command_allocators;
-
+		
+		HANDLE m_fence_wait_event;
 		std::vector<Microsoft::WRL::ComPtr<ID3D12Fence1>> m_frame_fences;
+		std::vector<UINT64> m_frame_fence_values;
 
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_command_list;
 		
@@ -45,9 +47,12 @@ namespace my_lib
 
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();
+
 		void CreateDepthBuffer(const int& width, const int& height);
 		void CreateCommandAllocators();
 		void CreateFrameFences();
+
+		void WaitPreviousFrame();
 
 	private:
 		// DebugLayer—LŒø‰»
@@ -58,6 +63,7 @@ namespace my_lib
 		void SetWARPDevice(const Microsoft::WRL::ComPtr<IDXGIFactory4> &factory, Microsoft::WRL::ComPtr<IDXGIAdapter>& warp_device);
 	public:
 		const UINT m_frame_buffer_count = 2;
+		const UINT m_gpu_wait_timeout = (10 * 1000);
 
 		D3D12AppBase();
 		virtual ~D3D12AppBase(){}

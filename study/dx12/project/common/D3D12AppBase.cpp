@@ -3,6 +3,10 @@
 my_lib::D3D12AppBase::D3D12AppBase()
 {
 	m_render_targets.resize(m_frame_buffer_count);
+	m_frame_fence_values.resize(m_frame_buffer_count);
+	m_frame_index = 0;
+
+	m_fence_wait_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 }
 
 /* private */
@@ -137,6 +141,26 @@ void my_lib::D3D12AppBase::CreateFrameFences()
 	for (UINT i = 0; i < m_frame_buffer_count; ++i) { m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_frame_fences[i])); }
 }
 
+// コマンド積み込み待機
+void my_lib::D3D12AppBase::WaitPreviousFrame()
+{
+	// GPUが到達後設定される値をセット
+	Microsoft::WRL::ComPtr<ID3D12Fence1>& fence = m_frame_fences[m_frame_index];
+	const UINT64 current_value = ++m_frame_fence_values[m_frame_index];
+	m_command_queue->Signal(fence.Get(), current_value);
+
+	// 次CommandAllocatorは実行完了済みかをチェック
+	UINT next_index = (m_frame_index + 1) % m_frame_buffer_count;
+	const UINT64 finish_expected = m_frame_fence_values[next_index];
+	const UINT64 next_fence_value = m_frame_fences[next_index]->GetCompletedValue();
+	if (next_fence_value < finish_expected)
+	{
+		// GPU処理中のため, イベントで待機
+		m_frame_fences[next_index]->SetEventOnCompletion(finish_expected, m_fence_wait_event);
+		WaitForSingleObject(m_fence_wait_event, m_gpu_wait_timeout);
+	}
+}
+
 /* public */
 
 void my_lib::D3D12AppBase::Initialize(HWND hWnd)
@@ -245,7 +269,8 @@ void my_lib::D3D12AppBase::Render()
 	// DSVクリア
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsv(m_dsv_heap->GetCPUDescriptorHandleForHeapStart());
 	m_command_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
+	// 描画先設定
+	m_command_list->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 	// RT -> SwapChain表示可能
 	CD3DX12_RESOURCE_BARRIER barrier_to_present = CD3DX12_RESOURCE_BARRIER::Transition
 	(
@@ -254,7 +279,6 @@ void my_lib::D3D12AppBase::Render()
 		D3D12_RESOURCE_STATE_PRESENT
 	);
 	m_command_list->ResourceBarrier(1, &barrier_to_present);
-
 	// 描画コマンド積み込み完了
 	m_command_list->Close();
 
@@ -264,4 +288,7 @@ void my_lib::D3D12AppBase::Render()
 
 	// 画面へ描画
 	m_swap_chain->Present(1, 0);
+
+	// 前回のコマンド実行を待つ
+	WaitPreviousFrame();
 }
