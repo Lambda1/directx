@@ -199,9 +199,45 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	CreateCommandAllocators();
 	// 描画フレーム同期用フェンス作成
 	CreateFrameFences();
+
+	// コマンドリスト生成
+	// NOTE: 描画フレーム処理の開始までクローズ.
+	m_device->CreateCommandList
+	(
+		0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+		m_command_allocators[0].Get(),
+		nullptr, IID_PPV_ARGS(&m_command_list)
+	);
+	m_command_list->Close();
 }
 
 void my_lib::D3D12AppBase::Terminate()
 {
 
+}
+
+void my_lib::D3D12AppBase::Render()
+{
+	// Command Allocator切り替え
+	m_frame_index = m_swap_chain->GetCurrentBackBufferIndex();
+	
+	m_command_allocators[m_frame_index]->Reset();
+	m_command_list->Reset(m_command_allocators[m_frame_index].Get(), nullptr);
+	
+	/* クリアコマンド */
+	// RTVクリア
+	const float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv
+	(
+		m_rtv_heap->GetCPUDescriptorHandleForHeapStart(),
+		m_frame_index, m_rtv_descripter_size
+	);
+	m_command_list->ClearRenderTargetView(rtv, clear_color, 0, nullptr);
+
+	// DSVクリア
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsv(m_dsv_heap->GetCPUDescriptorHandleForHeapStart());
+	m_command_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	// 描画コマンド積み込み完了
+	m_command_list->Close();
 }

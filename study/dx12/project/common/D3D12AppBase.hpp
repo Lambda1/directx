@@ -39,6 +39,10 @@ namespace my_lib
 
 		std::vector<Microsoft::WRL::ComPtr<ID3D12Fence1>> m_frame_fences;
 
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_command_list;
+		
+		UINT m_frame_index = 0;
+
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();
 		void CreateDepthBuffer(const int& width, const int& height);
@@ -61,7 +65,7 @@ namespace my_lib
 		void Initialize(HWND hWnd);
 		void Terminate();
 
-		virtual void Render(){}
+		virtual void Render();
 
 		virtual void Prepare(){}
 		virtual void CleanUp(){}
