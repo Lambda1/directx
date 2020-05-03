@@ -33,6 +33,7 @@ namespace my_lib
 		UINT m_rtv_descripter_size;
 		
 		std::vector<Microsoft::WRL::ComPtr<ID3D12Resource1>> m_render_targets;
+		Microsoft::WRL::ComPtr<ID3D12Resource1> m_depth_buffer;
 
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();

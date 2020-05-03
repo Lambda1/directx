@@ -92,6 +92,30 @@ void my_lib::D3D12AppBase::PrepareRenderTargetView()
 // デプスバッファ関係の準備
 void my_lib::D3D12AppBase::CreateDepthBuffer(const int& width, const int& height)
 {
+	// デプスバッファ生成
+	// NOTE: RTと同じ画像サイズで, テクスチャの1種として作成.
+	CD3DX12_RESOURCE_DESC depth_buffer_desc = CD3DX12_RESOURCE_DESC::Tex2D
+	(
+		DXGI_FORMAT_D32_FLOAT,
+		width, height,
+		1, 0,
+		1, 0,
+		D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
+	);
+	D3D12_CLEAR_VALUE depth_clear_value{};
+	depth_clear_value.Format = depth_buffer_desc.Format;
+	depth_clear_value.DepthStencil.Depth = 1.0f;
+	depth_clear_value.DepthStencil.Stencil = 0;
+	// デプスバッファ作成
+	m_device->CreateCommittedResource
+	(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&depth_buffer_desc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depth_clear_value,
+		IID_PPV_ARGS(&m_depth_buffer)
+	);
 }
 
 /* public */
