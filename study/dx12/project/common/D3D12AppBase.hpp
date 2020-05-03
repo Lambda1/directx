@@ -37,10 +37,13 @@ namespace my_lib
 		
 		std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> m_command_allocators;
 
+		std::vector<Microsoft::WRL::ComPtr<ID3D12Fence1>> m_frame_fences;
+
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();
 		void CreateDepthBuffer(const int& width, const int& height);
 		void CreateCommandAllocators();
+		void CreateFrameFences();
 
 	private:
 		// DebugLayer—LŒø‰»

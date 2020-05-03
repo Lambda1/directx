@@ -130,6 +130,12 @@ void my_lib::D3D12AppBase::CreateCommandAllocators()
 	m_command_allocators.resize(m_frame_buffer_count);
 	for (UINT i = 0; i < m_frame_buffer_count; ++i) { m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_command_allocators[i])); }
 }
+// 描画フレーム同期用フェンス
+void my_lib::D3D12AppBase::CreateFrameFences()
+{
+	m_frame_fences.resize(m_frame_buffer_count);
+	for (UINT i = 0; i < m_frame_buffer_count; ++i) { m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_frame_fences[i])); }
+}
 
 /* public */
 
@@ -191,6 +197,8 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 
 	// コマンドアロケータ準備
 	CreateCommandAllocators();
+	// 描画フレーム同期用フェンス作成
+	CreateFrameFences();
 }
 
 void my_lib::D3D12AppBase::Terminate()
