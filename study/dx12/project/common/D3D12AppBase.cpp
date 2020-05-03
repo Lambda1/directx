@@ -64,8 +64,14 @@ void my_lib::D3D12AppBase::PrepareDescriptorHeaps()
 	// RenderTargetView(RTV)用ディスクリプタヒープ
 	D3D12_DESCRIPTOR_HEAP_DESC rtv_heap_desc{ D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frame_buffer_count, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0 };
 	hr = m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(&m_rtv_heap));
-	if (FAILED(hr)) { throw std::runtime_error("CreateDescriptorHeap is failed."); }
+	if (FAILED(hr)) { throw std::runtime_error("RTV CreateDescriptorHeap is failed."); }
 	m_rtv_descripter_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	
+	// DepthStencilView(DSV)用ディスクリプタヒープ
+	// NOTE: デプスバッファは, (現状)1つで十分.
+	D3D12_DESCRIPTOR_HEAP_DESC dsv_heap_desc{ D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0 };
+	hr = m_device->CreateDescriptorHeap(&dsv_heap_desc, IID_PPV_ARGS(&m_dsv_heap));
+	if (FAILED(hr)) { throw std::runtime_error("DSV CreateDescriptorHeap is failed."); }
 }
 // レンダーターゲットビューの生成
 void my_lib::D3D12AppBase::PrepareRenderTargetView()
@@ -82,6 +88,10 @@ void my_lib::D3D12AppBase::PrepareRenderTargetView()
 		// 次のディスクリプタへのアドレス計算
 		rtv_handle.Offset(1, m_rtv_descripter_size);
 	}
+}
+// デプスバッファ関係の準備
+void my_lib::D3D12AppBase::CreateDepthBuffer(const int& width, const int& height)
+{
 }
 
 /* public */
@@ -139,6 +149,8 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	PrepareDescriptorHeaps();
 	// レンダーターゲットビュー生成
 	PrepareRenderTargetView();
+	// デプスバッファ関連準備
+	CreateDepthBuffer(width, height);
 }
 
 void my_lib::D3D12AppBase::Terminate()

@@ -36,6 +36,7 @@ namespace my_lib
 
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();
+		void CreateDepthBuffer(const int& width, const int& height);
 
 	private:
 		// DebugLayer—LŒø‰»
