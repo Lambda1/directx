@@ -223,7 +223,16 @@ void my_lib::D3D12AppBase::Render()
 	
 	m_command_allocators[m_frame_index]->Reset();
 	m_command_list->Reset(m_command_allocators[m_frame_index].Get(), nullptr);
-	
+
+	// SwapChain表示可能 -> RT
+	CD3DX12_RESOURCE_BARRIER barrier_to_rt = CD3DX12_RESOURCE_BARRIER::Transition
+	(
+		m_render_targets[m_frame_index].Get(),
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET
+	);
+	m_command_list->ResourceBarrier(1, &barrier_to_rt);
+
 	/* クリアコマンド */
 	// RTVクリア
 	const float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
@@ -233,11 +242,26 @@ void my_lib::D3D12AppBase::Render()
 		m_frame_index, m_rtv_descripter_size
 	);
 	m_command_list->ClearRenderTargetView(rtv, clear_color, 0, nullptr);
-
 	// DSVクリア
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsv(m_dsv_heap->GetCPUDescriptorHandleForHeapStart());
 	m_command_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
+	// RT -> SwapChain表示可能
+	CD3DX12_RESOURCE_BARRIER barrier_to_present = CD3DX12_RESOURCE_BARRIER::Transition
+	(
+		m_render_targets[m_frame_index].Get(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_PRESENT
+	);
+	m_command_list->ResourceBarrier(1, &barrier_to_present);
+
 	// 描画コマンド積み込み完了
 	m_command_list->Close();
+
+	// CommandList実行
+	ID3D12CommandList* lists[] = { m_command_list.Get() };
+	m_command_queue->ExecuteCommandLists(1, lists);
+
+	// 画面へ描画
+	m_swap_chain->Present(1, 0);
 }
