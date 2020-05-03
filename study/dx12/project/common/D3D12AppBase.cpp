@@ -89,7 +89,7 @@ void my_lib::D3D12AppBase::PrepareRenderTargetView()
 		rtv_handle.Offset(1, m_rtv_descripter_size);
 	}
 }
-// デプスバッファ関係の準備
+// デプスバッファ生成
 void my_lib::D3D12AppBase::CreateDepthBuffer(const int& width, const int& height)
 {
 	// デプスバッファ生成
@@ -122,6 +122,13 @@ void my_lib::D3D12AppBase::CreateDepthBuffer(const int& width, const int& height
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{ DXGI_FORMAT_D32_FLOAT, D3D12_DSV_DIMENSION_TEXTURE2D, D3D12_DSV_FLAG_NONE, {0} };
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsv_handle(m_dsv_heap->GetCPUDescriptorHandleForHeapStart());
 	m_device->CreateDepthStencilView(m_depth_buffer.Get(), &dsv_desc, dsv_handle);
+}
+// コマンドアロケータ生成
+void my_lib::D3D12AppBase::CreateCommandAllocators()
+{
+	// フレームバッファ数分のアロケータ生成
+	m_command_allocators.resize(m_frame_buffer_count);
+	for (UINT i = 0; i < m_frame_buffer_count; ++i) { m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_command_allocators[i])); }
 }
 
 /* public */
@@ -181,6 +188,9 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	PrepareRenderTargetView();
 	// デプスバッファ関連準備
 	CreateDepthBuffer(width, height);
+
+	// コマンドアロケータ準備
+	CreateCommandAllocators();
 }
 
 void my_lib::D3D12AppBase::Terminate()

@@ -34,10 +34,13 @@ namespace my_lib
 		
 		std::vector<Microsoft::WRL::ComPtr<ID3D12Resource1>> m_render_targets;
 		Microsoft::WRL::ComPtr<ID3D12Resource1> m_depth_buffer;
+		
+		std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> m_command_allocators;
 
 		virtual void PrepareDescriptorHeaps();
 		void PrepareRenderTargetView();
 		void CreateDepthBuffer(const int& width, const int& height);
+		void CreateCommandAllocators();
 
 	private:
 		// DebugLayer—LŒø‰»
