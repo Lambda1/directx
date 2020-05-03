@@ -149,10 +149,11 @@ void my_lib::D3D12AppBase::WaitPreviousFrame()
 	const UINT64 current_value = ++m_frame_fence_values[m_frame_index];
 	m_command_queue->Signal(fence.Get(), current_value);
 
-	// 次CommandAllocatorは実行完了済みかをチェック
+	// 次のCommandAllocatorは実行完了済みかをチェック
 	UINT next_index = (m_frame_index + 1) % m_frame_buffer_count;
 	const UINT64 finish_expected = m_frame_fence_values[next_index];
 	const UINT64 next_fence_value = m_frame_fences[next_index]->GetCompletedValue();
+	std::cout << m_frame_index << " " <<  next_fence_value << " " << finish_expected << std::endl;
 	if (next_fence_value < finish_expected)
 	{
 		// GPU処理中のため, イベントで待機
@@ -288,7 +289,7 @@ void my_lib::D3D12AppBase::Render()
 
 	// 画面へ描画
 	m_swap_chain->Present(1, 0);
-
+	
 	// 前回のコマンド実行を待つ
 	WaitPreviousFrame();
 }
