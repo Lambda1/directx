@@ -2,6 +2,7 @@
 
 my_lib::D3D12AppBase::D3D12AppBase()
 {
+	m_render_targets.resize(m_frame_buffer_count);
 }
 
 /* private */
@@ -66,6 +67,22 @@ void my_lib::D3D12AppBase::PrepareDescriptorHeaps()
 	if (FAILED(hr)) { throw std::runtime_error("CreateDescriptorHeap is failed."); }
 	m_rtv_descripter_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 }
+// レンダーターゲットビューの生成
+void my_lib::D3D12AppBase::PrepareRenderTargetView()
+{
+	// スワップチェインイメージへのRTV生成
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv_handle(m_rtv_heap->GetCPUDescriptorHandleForHeapStart());
+	
+	for (UINT i = 0; i < m_frame_buffer_count; ++i)
+	{
+		// i番目のRTのリソース取得
+		m_swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_render_targets[i]));
+		// RTV用ディスクリプタ作成
+		m_device->CreateRenderTargetView(m_render_targets[i].Get(), nullptr, rtv_handle);
+		// 次のディスクリプタへのアドレス計算
+		rtv_handle.Offset(1, m_rtv_descripter_size);
+	}
+}
 
 /* public */
 
@@ -75,7 +92,7 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 	UINT dxgi_flags = 0;
 
 	// DebugLayer
-#if (_DEBUG)
+#if defined(_DEBUG)
 	DebugMode(&dxgi_flags);
 #endif
 
@@ -120,6 +137,8 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 
 	// ディスクリプタヒープ準備
 	PrepareDescriptorHeaps();
+	// レンダーターゲットビュー生成
+	PrepareRenderTargetView();
 }
 
 void my_lib::D3D12AppBase::Terminate()

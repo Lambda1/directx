@@ -6,15 +6,17 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include "./d3dx12.h"
 
 #include <stdexcept>
 #include <iostream>
 #include <string>
 
+#include <vector>
+
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
-#define _DEBUG true
 #define _DEBUG_GBV false
 
 namespace my_lib
@@ -29,8 +31,11 @@ namespace my_lib
 		
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heap, m_dsv_heap;
 		UINT m_rtv_descripter_size;
+		
+		std::vector<Microsoft::WRL::ComPtr<ID3D12Resource1>> m_render_targets;
 
 		virtual void PrepareDescriptorHeaps();
+		void PrepareRenderTargetView();
 
 	private:
 		// DebugLayer—LŒø‰»
