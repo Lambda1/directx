@@ -162,6 +162,47 @@ void my_lib::D3D12AppBase::WaitPreviousFrame()
 	}
 }
 
+// シェーダコンパイル
+HRESULT my_lib::D3D12AppBase::CompileShaderFromFile(const std::wstring& file_name, const std::wstring& profile, Microsoft::WRL::ComPtr<ID3DBlob>& shader_blob, Microsoft::WRL::ComPtr<ID3DBlob>& error_msg)
+{
+	std::filesystem::path file_path(file_name);
+	std::ifstream in_file(file_path);
+	if (!in_file) { throw std::runtime_error("not found shader file."); }
+	
+	// Shader読み込み
+	std::vector<char> src_data;
+	src_data.resize(in_file.seekg(0, in_file.end).tellg());
+	in_file.seekg(0, in_file.beg).read(src_data.data(), src_data.size());
+
+	// DXC処理
+	Microsoft::WRL::ComPtr<IDxcLibrary> library;
+	Microsoft::WRL::ComPtr<IDxcCompiler> compiler;
+	Microsoft::WRL::ComPtr<IDxcBlobEncoding> source;
+	Microsoft::WRL::ComPtr<IDxcOperationResult> dxc_result;
+
+	DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library));
+	library->CreateBlobWithEncodingFromPinned(src_data.data(), UINT32(src_data.size()), CP_ACP, &source);
+
+	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+	LPCWSTR compile_flags[] =
+	{
+#if _DEBUG
+		L"/Zi", L"/O0"
+#else
+		// リリースビルド時, 最適化
+		L"/02"
+#endif
+	};
+	compiler->Compile(source.Get(), file_path.wstring().c_str(), L"main", profile.c_str(), compile_flags, _countof(compile_flags), nullptr, 0, nullptr, &dxc_result);
+
+	HRESULT hr = FALSE;
+	dxc_result->GetStatus(&hr);
+	if (SUCCEEDED(hr)) { dxc_result->GetResult(reinterpret_cast<IDxcBlob**>(shader_blob.GetAddressOf())); }
+	else { dxc_result->GetErrorBuffer(reinterpret_cast<IDxcBlobEncoding**>(error_msg.GetAddressOf())); }
+
+	return hr;
+}
+
 /* public */
 
 void my_lib::D3D12AppBase::Initialize(HWND hWnd)

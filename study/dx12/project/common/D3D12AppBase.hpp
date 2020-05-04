@@ -54,6 +54,9 @@ namespace my_lib
 
 		void WaitPreviousFrame();
 
+		// Shader
+		HRESULT CompileShaderFromFile(const std::wstring& file_name, const std::wstring& profile, Microsoft::WRL::ComPtr<ID3DBlob>& shader_blob, Microsoft::WRL::ComPtr<ID3DBlob>& error_msg);
+
 	private:
 		// DebugLayer—LŒø‰»
 		void DebugMode(UINT *dxgi_flags);
