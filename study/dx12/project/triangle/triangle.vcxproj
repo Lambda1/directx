@@ -143,10 +143,12 @@
   <ItemGroup>
     <ClCompile Include="..\common\D3D12AppBase.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="SimpleTriangle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\D3D12AppBase.hpp" />
     <ClInclude Include="..\common\d3dx12.h" />
+    <ClInclude Include="SimpleTriangle.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

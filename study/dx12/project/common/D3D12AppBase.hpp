@@ -83,7 +83,7 @@ namespace my_lib
 
 		virtual void Prepare(){}
 		virtual void CleanUp(){}
-		virtual void MakeCommand(Microsoft::WRL::ComPtr<ID3D12CommandList>& command){}
+		virtual void MakeCommand(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& command){}
 	};
 }
 

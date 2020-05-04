@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#include "../common/D3D12AppBase.hpp"
+#include "SimpleTriangle.hpp"
 
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
@@ -28,7 +28,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int n_cmd_show)
 {
-	my_lib::D3D12AppBase the_app{};
+	my_lib::SimpleTriangle the_app{};
 
 	// ウィンドウクラスの登録
 	WNDCLASSEX window_class{};
