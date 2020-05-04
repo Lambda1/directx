@@ -47,7 +47,10 @@ namespace my_lib
 		std::vector<UINT64> m_frame_fence_values;
 
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_command_list;
-		
+	
+		CD3DX12_VIEWPORT m_viewport;
+		CD3DX12_RECT m_scissor_rect;
+
 		UINT m_frame_index = 0;
 
 		virtual void PrepareDescriptorHeaps();

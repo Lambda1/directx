@@ -164,13 +164,16 @@ void my_lib::D3D12AppBase::WaitPreviousFrame()
 // シェーダコンパイル
 HRESULT my_lib::D3D12AppBase::CompileShaderFromFile(const std::wstring& file_name, const std::wstring& profile, Microsoft::WRL::ComPtr<ID3DBlob>& shader_blob, Microsoft::WRL::ComPtr<ID3DBlob>& error_msg)
 {
+	HRESULT hr = FALSE;
+	
 	std::filesystem::path file_path(file_name);
-	std::ifstream in_file(file_path);
+	std::ifstream in_file(file_path, std::ios::in | std::ios::binary);
 	if (!in_file) { throw std::runtime_error("not found shader file."); }
 	
 	// Shader読み込み
 	std::vector<char> src_data;
 	src_data.resize(in_file.seekg(0, in_file.end).tellg());
+	src_data.push_back('\0');
 	in_file.seekg(0, in_file.beg).read(src_data.data(), src_data.size());
 
 	// DXC処理
@@ -181,7 +184,6 @@ HRESULT my_lib::D3D12AppBase::CompileShaderFromFile(const std::wstring& file_nam
 
 	DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library));
 	library->CreateBlobWithEncodingFromPinned(src_data.data(), UINT32(src_data.size()), CP_ACP, &source);
-
 	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
 	LPCWSTR compile_flags[] =
 	{
@@ -192,9 +194,8 @@ HRESULT my_lib::D3D12AppBase::CompileShaderFromFile(const std::wstring& file_nam
 		L"/02"
 #endif
 	};
-	compiler->Compile(source.Get(), file_path.wstring().c_str(), L"main", profile.c_str(), compile_flags, _countof(compile_flags), nullptr, 0, nullptr, &dxc_result);
+	hr = compiler->Compile(source.Get(), file_path.wstring().c_str(), L"main", profile.c_str(), compile_flags, _countof(compile_flags), nullptr, 0, nullptr, &dxc_result);
 
-	HRESULT hr = FALSE;
 	dxc_result->GetStatus(&hr);
 	if (SUCCEEDED(hr)) { dxc_result->GetResult(reinterpret_cast<IDxcBlob**>(shader_blob.GetAddressOf())); }
 	else { dxc_result->GetErrorBuffer(reinterpret_cast<IDxcBlobEncoding**>(error_msg.GetAddressOf())); }
@@ -213,7 +214,7 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 #if defined(_DEBUG)
 	DebugMode(&dxgi_flags);
 #endif
-
+	
 	// DXGI Factory生成
 	Microsoft::WRL::ComPtr<IDXGIFactory3> factory;
 	hr = CreateDXGIFactory2(dxgi_flags, IID_PPV_ARGS(&factory));
@@ -274,11 +275,16 @@ void my_lib::D3D12AppBase::Initialize(HWND hWnd)
 		nullptr, IID_PPV_ARGS(&m_command_list)
 	);
 	m_command_list->Close();
+
+	m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(width), float(height));
+	m_scissor_rect = CD3DX12_RECT(0, 0, LONG(width), LONG(height));
+
+	Prepare();
 }
 
 void my_lib::D3D12AppBase::Terminate()
 {
-
+	CleanUp();
 }
 
 void my_lib::D3D12AppBase::Render()
@@ -312,6 +318,9 @@ void my_lib::D3D12AppBase::Render()
 	m_command_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	// 描画先設定
 	m_command_list->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+
+	MakeCommand(m_command_list);
+
 	// RT -> SwapChain表示可能
 	CD3DX12_RESOURCE_BARRIER barrier_to_present = CD3DX12_RESOURCE_BARRIER::Transition
 	(
