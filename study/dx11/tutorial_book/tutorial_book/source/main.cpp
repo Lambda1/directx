@@ -3,6 +3,7 @@
 #include <d3d11.h>
 #include <D3DX10.h>
 #include <d3dcompiler.h>
+#include <xnamath.h>
 
 /* グローバル変数 */
 // ウィンドウ設定
@@ -207,6 +208,7 @@ void App()
 	D3DXMatrixRotationY(&rotation, 3.14f/4.0f);
 	// world transform
 	D3DXMatrixIdentity(&world);
+	XMMATRIX m_world = XMMatrixIdentity();
 
 	world = scale * rotation * translate;
 
@@ -215,6 +217,7 @@ void App()
 	D3DXVECTOR3 v_lookat_pt(0.0f, 0.0f, 0.0f);
 	D3DXVECTOR3 v_up_vec(0.0f, 1.0f, 0.0f);
 	D3DXMatrixLookAtLH(&view, &v_eye_pt, &v_lookat_pt, &v_up_vec);
+	
 	// projection transform
 	D3DXMatrixPerspectiveFovLH(&projection, D3DX_PI / 4.0, static_cast<FLOAT>(w_width) / static_cast<FLOAT>(w_height), 0.1f, 100.0f);
 
@@ -229,6 +232,7 @@ void App()
 	{
 		// world, camera, projection 行列を渡す
 		cb.m_wvp = world * view * projection;
+		//cb.m_wvp = m_world * m_view * m_projection;
 		D3DXMatrixTranspose(&cb.m_wvp, &cb.m_wvp);
 
 		memcpy_s(p_data.pData, p_data.RowPitch, reinterpret_cast<void*>(&cb), sizeof(cb));
