@@ -17,6 +17,9 @@ const int window_height = 600;
 ID3D12Device* p_device = nullptr;
 IDXGIFactory6* p_dxgi_factory = nullptr;
 IDXGISwapChain4* p_swap_chain = nullptr;
+ID3D12CommandAllocator* p_cmd_allocator = nullptr;
+ID3D12CommandList* p_cmd_list = nullptr;
+ID3D12CommandQueue* p_cmd_queue = nullptr;
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -42,7 +45,7 @@ void DebugOutputFormatString(const char* format, ...)
 }
 
 // DirectX12
-void InitDirectX()
+void InitDirectX(HWND &hwnd)
 {
 	// アダプタ列挙
 	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&p_dxgi_factory))))
@@ -87,6 +90,81 @@ void InitDirectX()
 		std::cout << __LINE__ << std::endl;
 		std::exit(EXIT_FAILURE);
 	}
+
+	// コマンドアロケータ生成
+	if (FAILED(p_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&p_cmd_allocator))))
+	{
+		std::cout << __LINE__ << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+	// コマンドリスト生成
+	if (FAILED(p_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, p_cmd_allocator, nullptr, IID_PPV_ARGS(&p_cmd_list))))
+	{
+		std::cout << __LINE__ << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
+	// コマンドキュー生成
+	D3D12_COMMAND_QUEUE_DESC cmd_queu_desc = {};
+	cmd_queu_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // タイムアウト無し
+	cmd_queu_desc.NodeMask = 0; // アダプタ1つの場合は0
+	cmd_queu_desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	cmd_queu_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // コマンドリストに合わせる
+	if (FAILED(p_device->CreateCommandQueue(&cmd_queu_desc, IID_PPV_ARGS(&p_cmd_queue))))
+	{
+		std::cout << __LINE__ << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
+	// スワップチェーン生成
+	DXGI_SWAP_CHAIN_DESC1 swap_chain_desc = {};
+	swap_chain_desc.Width = window_width;
+	swap_chain_desc.Height = window_height;
+	swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swap_chain_desc.Stereo = false;
+	swap_chain_desc.SampleDesc.Count = 1;
+	swap_chain_desc.SampleDesc.Quality = 0;
+	swap_chain_desc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
+	swap_chain_desc.BufferCount = 2;
+	swap_chain_desc.Scaling = DXGI_SCALING_STRETCH; // バックバッファは伸縮可能
+	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // フリップ後は破棄
+	swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+	swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // ウィンドウ・フルスク切り替え
+	if (FAILED(p_dxgi_factory->CreateSwapChainForHwnd(p_cmd_queue, hwnd, &swap_chain_desc, nullptr, nullptr, (IDXGISwapChain1**)&p_swap_chain)))
+	{
+		std::cout << __LINE__ << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
+	// ディスクリプタヒープ生成
+	D3D12_DESCRIPTOR_HEAP_DESC heap_desc = {};
+	heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	heap_desc.NodeMask = 0;
+	heap_desc.NumDescriptors = 2;
+	heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	ID3D12DescriptorHeap* rtv_heaps = nullptr;
+	if (FAILED(p_device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&rtv_heaps))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// スワップチェーンとメモリの紐づけ
+	DXGI_SWAP_CHAIN_DESC swc_desc = {};
+	if (FAILED(p_swap_chain->GetDesc(&swc_desc)))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+	std::vector<ID3D12Resource*> back_buffers(swc_desc.BufferCount);
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+	for (int index = 0; index < swc_desc.BufferCount; ++index)
+	{
+		if (FAILED(p_swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffers[index]))))
+		{
+			std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		}
+		handle.ptr += (index * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
+		p_device->CreateRenderTargetView(back_buffers[index], nullptr, handle);
+	}
 }
 
 #ifdef _DEBUG
@@ -129,7 +207,7 @@ int main()
 #endif
 
 	// D3D12の初期化
-	InitDirectX();
+	InitDirectX(hwnd);
 
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
