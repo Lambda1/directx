@@ -18,8 +18,12 @@ ID3D12Device* p_device = nullptr;
 IDXGIFactory6* p_dxgi_factory = nullptr;
 IDXGISwapChain4* p_swap_chain = nullptr;
 ID3D12CommandAllocator* p_cmd_allocator = nullptr;
-ID3D12CommandList* p_cmd_list = nullptr;
+ID3D12GraphicsCommandList* p_cmd_list = nullptr;
 ID3D12CommandQueue* p_cmd_queue = nullptr;
+std::vector<ID3D12Resource*> back_buffers;
+ID3D12DescriptorHeap* rtv_heaps = nullptr;
+ID3D12Fence* p_fence = nullptr;
+UINT64 fence_val = 0;
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -45,10 +49,14 @@ void DebugOutputFormatString(const char* format, ...)
 }
 
 // DirectX12
-void InitDirectX(HWND &hwnd)
+void InitDirectX(HWND& hwnd)
 {
 	// アダプタ列挙
+#ifdef _DEBUG
+	if (FAILED(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&p_dxgi_factory))))
+#else
 	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&p_dxgi_factory))))
+#endif
 	{
 		std::cout << __LINE__ << std::endl;
 		std::exit(EXIT_FAILURE);
@@ -142,7 +150,6 @@ void InitDirectX(HWND &hwnd)
 	heap_desc.NodeMask = 0;
 	heap_desc.NumDescriptors = 2;
 	heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	ID3D12DescriptorHeap* rtv_heaps = nullptr;
 	if (FAILED(p_device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&rtv_heaps))))
 	{
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
@@ -154,7 +161,7 @@ void InitDirectX(HWND &hwnd)
 	{
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 	}
-	std::vector<ID3D12Resource*> back_buffers(swc_desc.BufferCount);
+	back_buffers.resize(swc_desc.BufferCount);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 	for (int index = 0; index < swc_desc.BufferCount; ++index)
 	{
@@ -165,6 +172,25 @@ void InitDirectX(HWND &hwnd)
 		handle.ptr += (index * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 		p_device->CreateRenderTargetView(back_buffers[index], nullptr, handle);
 	}
+
+	// フェンス生成
+	if (FAILED(p_device->CreateFence(fence_val, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&p_fence))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+}
+
+void EnableDebugLayer()
+{
+	ID3D12Debug* debug_layer = nullptr;
+	HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debug_layer));
+	if (FAILED(hr))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	debug_layer->EnableDebugLayer();
+	debug_layer->Release();
 }
 
 #ifdef _DEBUG
@@ -207,25 +233,82 @@ int main()
 #endif
 
 	// D3D12の初期化
+#ifdef _DEBUG
+	EnableDebugLayer();
+#endif
 	InitDirectX(hwnd);
 
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
-	
+
 	// ループ
+	HRESULT hr = FALSE;
 	MSG msg = {};
 	while (true)
 	{
+		// WinAPI
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-
 		if (msg.message == WM_QUIT)
 		{
 			break;
 		}
+
+		// D3D12
+		// コマンドクリア
+		UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
+		
+		// バリア設定
+		D3D12_RESOURCE_BARRIER barrier_desc = {};
+		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier_desc.Transition.pResource = back_buffers[bb_idx];
+		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		p_cmd_list->ResourceBarrier(1, &barrier_desc);
+		
+		// RT設定
+		auto rtv_h = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		rtv_h.ptr += bb_idx * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		p_cmd_list->OMSetRenderTargets(1, &rtv_h, false, nullptr);
+		
+		// RTクリア
+		float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		p_cmd_list->ClearRenderTargetView(rtv_h, clear_color, 0, nullptr);
+		
+		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		p_cmd_list->ResourceBarrier(1, &barrier_desc);
+		
+		// クローズ
+		p_cmd_list->Close();
+
+		// コマンドリスト実行
+		ID3D12CommandList* cmd_lists[] = { p_cmd_list };
+		p_cmd_queue->ExecuteCommandLists(1, cmd_lists);
+
+		// フェンス処理
+		p_cmd_queue->Signal(p_fence, ++fence_val);
+		if (p_fence->GetCompletedValue() != fence_val)
+		{
+			auto event = CreateEvent(nullptr, false, false, nullptr); // イベントハンドル取得
+			p_fence->SetEventOnCompletion(fence_val, event);
+
+			WaitForSingleObject(event, INFINITE); // イベント終了待ち
+
+			CloseHandle(event);
+		}
+
+		// 解放
+		p_cmd_allocator->Reset();
+		p_cmd_list->Reset(p_cmd_allocator, nullptr); // 再度コマンドリストをためる準備
+
+		// スワップ
+		p_swap_chain->Present(1, 0);
 	}
 
 	UnregisterClass(w.lpszClassName, w.hInstance);
