@@ -3,9 +3,11 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
+#include <d3dcompiler.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 #include <iostream>
 #include <vector>
@@ -25,6 +27,8 @@ std::vector<ID3D12Resource*> back_buffers;
 ID3D12DescriptorHeap* rtv_heaps = nullptr;
 ID3D12Fence* p_fence = nullptr;
 UINT64 fence_val = 0;
+ID3DBlob* p_vs_blob = nullptr;
+ID3DBlob* p_ps_blob = nullptr;
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -282,6 +286,23 @@ int main()
 	std::copy(std::begin(vertices), std::end(vertices), vert_map);
 	vert_buff->Unmap(0, nullptr);
 
+	// 頂点バッファビュー作成
+	D3D12_VERTEX_BUFFER_VIEW vb_view = {};
+	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
+	vb_view.SizeInBytes = sizeof(vertices);
+	vb_view.StrideInBytes = sizeof(vertices[0]);
+
+	// シェーダ管理
+	ID3DBlob* error_blob = nullptr;
+	if (FAILED(D3DCompileFromFile(L"BasicVertexShader.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "BasicVS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &p_vs_blob, &error_blob)))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+	if (FAILED(D3DCompileFromFile(L"BasicPixelShader.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "BasicPS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &p_ps_blob, &error_blob)))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
 	// ループ
 	HRESULT hr = FALSE;
 	MSG msg = {};
@@ -301,7 +322,7 @@ int main()
 		// D3D12
 		// コマンドクリア
 		UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
-		
+
 		// バリア設定
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -311,20 +332,20 @@ int main()
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		p_cmd_list->ResourceBarrier(1, &barrier_desc);
-		
+
 		// RT設定
 		auto rtv_h = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		rtv_h.ptr += bb_idx * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		p_cmd_list->OMSetRenderTargets(1, &rtv_h, false, nullptr);
-		
+
 		// RTクリア
 		float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		p_cmd_list->ClearRenderTargetView(rtv_h, clear_color, 0, nullptr);
-		
+
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 		p_cmd_list->ResourceBarrier(1, &barrier_desc);
-		
+
 		// クローズ
 		p_cmd_list->Close();
 
