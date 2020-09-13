@@ -247,12 +247,19 @@ int main()
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
 
-	// 変数定義
+	// 頂点データ
 	DirectX::XMFLOAT3 vertices[] =
 	{
-		{-1.0f, -1.0f, 0.0f},
-		{-1.0f,  1.0f, 0.0f},
-		{ 1.0f, -1.0f, 0.0f}
+		{-0.4f, -0.7f, 0.0f},
+		{-0.4f,  0.7f, 0.0f},
+		{ 0.4f, -0.7f, 0.0f},
+		{ 0.4f,  0.7f, 0.0f}
+	};
+	// インデックスデータ
+	unsigned short indices[] =
+	{
+		0, 1, 2,
+		2, 1, 3
 	};
 
 	// 頂点バッファ生成
@@ -286,12 +293,28 @@ int main()
 	}
 	std::copy(std::begin(vertices), std::end(vertices), vert_map);
 	vert_buff->Unmap(0, nullptr);
-
 	// 頂点バッファビュー作成
 	D3D12_VERTEX_BUFFER_VIEW vb_view = {};
 	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
 	vb_view.SizeInBytes = sizeof(vertices);
 	vb_view.StrideInBytes = sizeof(vertices[0]);
+	// インデックスバッファ生成
+	ID3D12Resource* idx_buffer = nullptr;
+	res_desc.Width = sizeof(indices);
+	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&idx_buffer))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+	// インデックスデータのマップ
+	unsigned short* mapped_idx = nullptr;
+	idx_buffer->Map(0, nullptr, (void**)&mapped_idx);
+	std::copy(std::begin(indices), std::end(indices), mapped_idx);
+	idx_buffer->Unmap(0, nullptr);
+	// インデックスバッファビュー作成
+	D3D12_INDEX_BUFFER_VIEW ib_view = {};
+	ib_view.BufferLocation = idx_buffer->GetGPUVirtualAddress();
+	ib_view.Format = DXGI_FORMAT_R16_UINT;
+	ib_view.SizeInBytes = sizeof(indices);
 
 	// シェーダ管理
 	ID3DBlob* error_blob = nullptr;
@@ -464,7 +487,9 @@ int main()
 		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
 		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
-		p_cmd_list->DrawInstanced(3, 1, 0, 0);
+		p_cmd_list->IASetIndexBuffer(&ib_view);
+		
+		p_cmd_list->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
