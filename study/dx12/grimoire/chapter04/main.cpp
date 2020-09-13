@@ -2,6 +2,7 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <DirectXMath.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -240,6 +241,46 @@ int main()
 
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
+
+	// 変数定義
+	DirectX::XMFLOAT3 vertices[] =
+	{
+		{-1.0f, -1.0f, 0.0f},
+		{-1.0f,  1.0f, 0.0f},
+		{ 1.0f, -1.0f, 0.0f}
+	};
+
+	// 頂点バッファ生成
+	D3D12_HEAP_PROPERTIES heap_prop = {};
+	heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+	D3D12_RESOURCE_DESC res_desc = {};
+	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	res_desc.Width = sizeof(vertices);
+	res_desc.Height = 1;
+	res_desc.DepthOrArraySize = 1;
+	res_desc.MipLevels = 1;
+	res_desc.Format = DXGI_FORMAT_UNKNOWN;
+	res_desc.SampleDesc.Count = 1;
+	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	ID3D12Resource* vert_buff = nullptr;
+	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vert_buff))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// 頂点データのマップ
+	DirectX::XMFLOAT3* vert_map = nullptr;
+	if (FAILED(vert_buff->Map(0, nullptr, (void**)&vert_map)))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+	std::copy(std::begin(vertices), std::end(vertices), vert_map);
+	vert_buff->Unmap(0, nullptr);
 
 	// ループ
 	HRESULT hr = FALSE;
