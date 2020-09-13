@@ -318,7 +318,7 @@ int main()
 	D3D12_INPUT_ELEMENT_DESC input_layout[] =
 	{
 		{
-			"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
 	};
@@ -352,7 +352,7 @@ int main()
 	// ブレンドステート設定
 	g_pipeline_desc.BlendState.AlphaToCoverageEnable = false;
 	g_pipeline_desc.BlendState.IndependentBlendEnable = false;
-	
+
 	D3D12_RENDER_TARGET_BLEND_DESC render_target_blend_desc = {};
 	render_target_blend_desc.BlendEnable = false;
 	render_target_blend_desc.LogicOpEnable = false;
@@ -401,6 +401,22 @@ int main()
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 	}
 
+	// ビューポート設定
+	D3D12_VIEWPORT view_port = {};
+	view_port.Width = window_width;
+	view_port.Height = window_height;
+	view_port.TopLeftX = 0;
+	view_port.TopLeftY = 0;
+	view_port.MaxDepth = 1.0f;
+	view_port.MinDepth = 0.0f;
+
+	// シザー矩形
+	D3D12_RECT scissor_rect = {};
+	scissor_rect.top = 0;
+	scissor_rect.left = 0;
+	scissor_rect.right = scissor_rect.left + window_width;
+	scissor_rect.bottom = scissor_rect.top + window_height;
+
 	// ループ
 	HRESULT hr = FALSE;
 	MSG msg = {};
@@ -430,6 +446,8 @@ int main()
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		p_cmd_list->ResourceBarrier(1, &barrier_desc);
+		
+		p_cmd_list->SetPipelineState(p_pipeline_state);
 
 		// RT設定
 		auto rtv_h = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
@@ -439,6 +457,14 @@ int main()
 		// RTクリア
 		float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		p_cmd_list->ClearRenderTargetView(rtv_h, clear_color, 0, nullptr);
+
+		// 描画命令
+		p_cmd_list->RSSetViewports(1, &view_port);
+		p_cmd_list->RSSetScissorRects(1, &scissor_rect);
+		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
+		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
+		p_cmd_list->DrawInstanced(3, 1, 0, 0);
 
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
