@@ -29,6 +29,7 @@ ID3D12Fence* p_fence = nullptr;
 UINT64 fence_val = 0;
 ID3DBlob* p_vs_blob = nullptr;
 ID3DBlob* p_ps_blob = nullptr;
+ID3D12PipelineState* p_pipeline_state = nullptr;
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -294,11 +295,108 @@ int main()
 
 	// シェーダ管理
 	ID3DBlob* error_blob = nullptr;
+	auto shader_error_func = [&]()
+	{
+		std::string error_str;
+		error_str.resize(error_blob->GetBufferSize());
+		std::copy_n((char*)error_blob->GetBufferPointer(), error_blob->GetBufferSize(), error_str.begin());
+		error_str += '\n';
+		OutputDebugStringA(error_str.c_str());
+	};
 	if (FAILED(D3DCompileFromFile(L"BasicVertexShader.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "BasicVS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &p_vs_blob, &error_blob)))
 	{
+		shader_error_func();
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 	}
 	if (FAILED(D3DCompileFromFile(L"BasicPixelShader.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "BasicPS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &p_ps_blob, &error_blob)))
+	{
+		shader_error_func();
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// 頂点レイアウト
+	D3D12_INPUT_ELEMENT_DESC input_layout[] =
+	{
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+	};
+
+	// シェーダのセット
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC g_pipeline_desc = {};
+	g_pipeline_desc.pRootSignature = nullptr;
+	g_pipeline_desc.VS.pShaderBytecode = p_vs_blob->GetBufferPointer();
+	g_pipeline_desc.VS.BytecodeLength = p_vs_blob->GetBufferSize();
+	g_pipeline_desc.PS.pShaderBytecode = p_ps_blob->GetBufferPointer();
+	g_pipeline_desc.PS.BytecodeLength = p_ps_blob->GetBufferSize();
+
+	// サンプルマスト・ラスタライザステートの設定
+	g_pipeline_desc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	g_pipeline_desc.RasterizerState.MultisampleEnable = false;
+	g_pipeline_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	g_pipeline_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	g_pipeline_desc.RasterizerState.DepthClipEnable = true;
+
+	// 書かれていなかったやつ
+	g_pipeline_desc.RasterizerState.FrontCounterClockwise = false;
+	g_pipeline_desc.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+	g_pipeline_desc.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+	g_pipeline_desc.RasterizerState.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+	g_pipeline_desc.RasterizerState.AntialiasedLineEnable = false;
+	g_pipeline_desc.RasterizerState.ForcedSampleCount = 0;
+	g_pipeline_desc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+	g_pipeline_desc.DepthStencilState.DepthEnable = false;
+	g_pipeline_desc.DepthStencilState.StencilEnable = false;
+
+	// ブレンドステート設定
+	g_pipeline_desc.BlendState.AlphaToCoverageEnable = false;
+	g_pipeline_desc.BlendState.IndependentBlendEnable = false;
+	
+	D3D12_RENDER_TARGET_BLEND_DESC render_target_blend_desc = {};
+	render_target_blend_desc.BlendEnable = false;
+	render_target_blend_desc.LogicOpEnable = false;
+	render_target_blend_desc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	g_pipeline_desc.BlendState.RenderTarget[0] = render_target_blend_desc;
+
+	// 入力レイアウト設定
+	g_pipeline_desc.InputLayout.pInputElementDescs = input_layout;
+	g_pipeline_desc.InputLayout.NumElements = _countof(input_layout);
+
+	g_pipeline_desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+
+	g_pipeline_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	// レンダーターゲット設定
+	g_pipeline_desc.NumRenderTargets = 1;
+	g_pipeline_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	// アンチエイリアシング設定
+	g_pipeline_desc.SampleDesc.Count = 1;
+	g_pipeline_desc.SampleDesc.Quality = 0;
+
+	// ルートシグネチャの作成
+	ID3D12RootSignature* p_root_signature = nullptr;
+	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
+	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	ID3DBlob* root_signature_blob = nullptr;
+	if (FAILED(D3D12SerializeRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1_0, &root_signature_blob, &error_blob)))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	if (FAILED(p_device->CreateRootSignature(0, root_signature_blob->GetBufferPointer(), root_signature_blob->GetBufferSize(), IID_PPV_ARGS(&p_root_signature))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+	root_signature_blob->Release();
+
+	g_pipeline_desc.pRootSignature = p_root_signature;
+
+	// グラフィックパイプラインステートオブジェクト生成
+	if (FAILED(p_device->CreateGraphicsPipelineState(&g_pipeline_desc, IID_PPV_ARGS(&p_pipeline_state))))
 	{
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 	}
