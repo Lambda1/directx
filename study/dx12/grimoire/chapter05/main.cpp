@@ -31,11 +31,20 @@ ID3DBlob* p_vs_blob = nullptr;
 ID3DBlob* p_ps_blob = nullptr;
 ID3D12PipelineState* p_pipeline_state = nullptr;
 
+// ポリゴン情報
 struct Vertex
 {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT2 uv;
 };
+
+// テクスチャ情報
+struct TexRGBA
+{
+	unsigned char r, g, b, a;
+};
+
+std::vector<TexRGBA> texture_data(256 * 256);
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -240,6 +249,15 @@ int main()
 		nullptr
 	);
 
+	// 仮テクスチャ生成
+	for (auto& rgba : texture_data)
+	{
+		rgba.r = std::rand() % 256;
+		rgba.g = std::rand() % 256;
+		rgba.b = std::rand() % 256;
+		rgba.a = 255;
+	}
+
 #ifdef _DEBUG
 	DebugOutputFormatString("Show window test.");
 #endif
@@ -322,6 +340,58 @@ int main()
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
 	ib_view.SizeInBytes = sizeof(indices);
 
+	// テクスチャバッファの作成
+	heap_prop = {};
+	heap_prop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	heap_prop.CreationNodeMask = 0;
+	heap_prop.VisibleNodeMask = 0;
+	
+	res_desc = {};
+	res_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	res_desc.Width = 256;
+	res_desc.Height = 256;
+	res_desc.DepthOrArraySize = 1;
+	res_desc.SampleDesc.Count = 1;
+	res_desc.SampleDesc.Quality = 0;
+	res_desc.MipLevels = 1;
+	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	res_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	ID3D12Resource* tex_buff = nullptr;
+	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&tex_buff))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// データ転送
+	if (FAILED(tex_buff->WriteToSubresource(0, nullptr, texture_data.data(), sizeof(TexRGBA) * 256, sizeof(TexRGBA) * texture_data.size())))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// ディスクリプタヒープ作成
+	ID3D12DescriptorHeap* tex_desc_heap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC desc_heap_desc = {};
+	desc_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	desc_heap_desc.NodeMask = 0;
+	desc_heap_desc.NumDescriptors = 1;
+	desc_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	if (FAILED(p_device->CreateDescriptorHeap(&desc_heap_desc, IID_PPV_ARGS(&tex_desc_heap))))
+	{
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+	}
+
+	// シェーダリソースビュー作成
+	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+	srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srv_desc.Texture2D.MipLevels = 1;
+	p_device->CreateShaderResourceView(tex_buff, &srv_desc, tex_desc_heap->GetCPUDescriptorHandleForHeapStart());
+
 	// シェーダ管理
 	ID3DBlob* error_blob = nullptr;
 	auto shader_error_func = [&]()
@@ -348,6 +418,10 @@ int main()
 	{
 		{
 			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
 	};
@@ -405,10 +479,40 @@ int main()
 	g_pipeline_desc.SampleDesc.Count = 1;
 	g_pipeline_desc.SampleDesc.Quality = 0;
 
+	// ディスクリプタレンジ生成
+	D3D12_DESCRIPTOR_RANGE desc_tbl_range = {};
+	desc_tbl_range.NumDescriptors = 1;
+	desc_tbl_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	desc_tbl_range.BaseShaderRegister = 0;
+	desc_tbl_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// ルートパラメータの作成
+	D3D12_ROOT_PARAMETER root_param = {};
+	root_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	root_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	root_param.DescriptorTable.pDescriptorRanges = &desc_tbl_range;
+	root_param.DescriptorTable.NumDescriptorRanges = 1;
+
+	// サンプラ設定
+	D3D12_STATIC_SAMPLER_DESC sampler_desc = {};
+	sampler_desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	sampler_desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler_desc.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler_desc.MinLOD = 0.0f;
+	sampler_desc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
 	// ルートシグネチャの作成
 	ID3D12RootSignature* p_root_signature = nullptr;
 	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
 	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	root_signature_desc.pParameters = &root_param;
+	root_signature_desc.NumParameters = 1;
+	root_signature_desc.pStaticSamplers = &sampler_desc;
+	root_signature_desc.NumStaticSamplers = 1;
 
 	ID3DBlob* root_signature_blob = nullptr;
 	if (FAILED(D3D12SerializeRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1_0, &root_signature_blob, &error_blob)))
@@ -494,7 +598,11 @@ int main()
 		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
 		p_cmd_list->IASetIndexBuffer(&ib_view);
-		
+	
+		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
+		p_cmd_list->SetDescriptorHeaps(1, &tex_desc_heap);
+		p_cmd_list->SetGraphicsRootDescriptorTable(0, tex_desc_heap->GetGPUDescriptorHandleForHeapStart());
+
 		p_cmd_list->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
