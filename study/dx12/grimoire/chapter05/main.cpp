@@ -31,6 +31,12 @@ ID3DBlob* p_vs_blob = nullptr;
 ID3DBlob* p_ps_blob = nullptr;
 ID3D12PipelineState* p_pipeline_state = nullptr;
 
+struct Vertex
+{
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT2 uv;
+};
+
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -248,12 +254,12 @@ int main()
 	ShowWindow(hwnd, SW_SHOW);
 
 	// 頂点データ
-	DirectX::XMFLOAT3 vertices[] =
+	Vertex vertices[] =
 	{
-		{-0.4f, -0.7f, 0.0f},
-		{-0.4f,  0.7f, 0.0f},
-		{ 0.4f, -0.7f, 0.0f},
-		{ 0.4f,  0.7f, 0.0f}
+		{{-0.4f, -0.7f, 0.0f}, {0.0f, 1.0f}},
+		{{-0.4f,  0.7f, 0.0f}, {0.0f, 0.0f}},
+		{{ 0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}},
+		{{ 0.4f,  0.7f, 0.0f}, {1.0f, 0.0f}},
 	};
 	// インデックスデータ
 	unsigned short indices[] =
@@ -286,7 +292,7 @@ int main()
 	}
 
 	// 頂点データのマップ
-	DirectX::XMFLOAT3* vert_map = nullptr;
+	Vertex* vert_map = nullptr;
 	if (FAILED(vert_buff->Map(0, nullptr, (void**)&vert_map)))
 	{
 		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
