@@ -439,7 +439,7 @@ int main()
 
 	// バリアとフェンスの設定
 	UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
-	p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(tex_buff, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	p_cmd_list->Close();
 
 	// コマンドリスト実行
@@ -656,14 +656,7 @@ int main()
 		// D3D12
 		UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
 		// バリア設定
-		D3D12_RESOURCE_BARRIER barrier_desc = {};
-		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		barrier_desc.Transition.pResource = back_buffers[bb_idx];
-		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		p_cmd_list->ResourceBarrier(1, &barrier_desc);
+		p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 		
 		p_cmd_list->SetPipelineState(p_pipeline_state);
 
@@ -690,9 +683,7 @@ int main()
 
 		p_cmd_list->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
-		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-		p_cmd_list->ResourceBarrier(1, &barrier_desc);
+		p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
 		// クローズ
 		p_cmd_list->Close();
@@ -720,7 +711,7 @@ int main()
 		// スワップ
 		p_swap_chain->Present(1, 0);
 	}
-
+	
 	UnregisterClass(w.lpszClassName, w.hInstance);
 
 	return 0;
