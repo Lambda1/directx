@@ -2,6 +2,8 @@
 
 #include <DirectXTex.h>
 
+#include <d3dx12.h>
+
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
@@ -296,21 +298,10 @@ int main()
 	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
 	// リソース設定
-	D3D12_RESOURCE_DESC res_desc = {};
-	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	res_desc.Width = sizeof(vertices);
-	res_desc.Height = 1;
-	res_desc.DepthOrArraySize = 1;
-	res_desc.MipLevels = 1;
-	res_desc.Format = DXGI_FORMAT_UNKNOWN;
-	res_desc.SampleDesc.Count = 1;
-	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
 	ID3D12Resource* vert_buff = nullptr;
-	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vert_buff))))
+	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vert_buff))))
 	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		OUT();
 	}
 
 	// 頂点データのマップ
@@ -328,6 +319,16 @@ int main()
 	vb_view.StrideInBytes = sizeof(vertices[0]);
 	// インデックスバッファ生成
 	ID3D12Resource* idx_buffer = nullptr;
+	D3D12_RESOURCE_DESC res_desc = {};
+	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	res_desc.Width = sizeof(vertices);
+	res_desc.Height = 1;
+	res_desc.DepthOrArraySize = 1;
+	res_desc.MipLevels = 1;
+	res_desc.Format = DXGI_FORMAT_UNKNOWN;
+	res_desc.SampleDesc.Count = 1;
+	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	res_desc.Width = sizeof(indices);
 	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&idx_buffer))))
 	{
@@ -437,15 +438,8 @@ int main()
 	p_cmd_list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
 	// バリアとフェンスの設定
-	D3D12_RESOURCE_BARRIER barrier_desc = {};
-	barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier_desc.Transition.pResource = tex_buff;
-	barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-	barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-	p_cmd_list->ResourceBarrier(1, &barrier_desc);
+	UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
+	p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 	p_cmd_list->Close();
 
 	// コマンドリスト実行
@@ -660,9 +654,7 @@ int main()
 		}
 
 		// D3D12
-		// コマンドクリア
 		UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
-
 		// バリア設定
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -672,7 +664,7 @@ int main()
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		p_cmd_list->ResourceBarrier(1, &barrier_desc);
-
+		
 		p_cmd_list->SetPipelineState(p_pipeline_state);
 
 		// RT設定
