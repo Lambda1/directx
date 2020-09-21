@@ -1,5 +1,7 @@
 #include <Windows.h>
 
+#include <DirectXTex.h>
+
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
@@ -8,10 +10,13 @@
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib, "DirectXTex.lib")
 
 #include <iostream>
 #include <vector>
 #include <string>
+
+#define OUT() std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 
 // グローバル変数
 const int window_width = 800;
@@ -79,8 +84,7 @@ void InitDirectX(HWND& hwnd)
 	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&p_dxgi_factory))))
 #endif
 	{
-		std::cout << __LINE__ << std::endl;
-		std::exit(EXIT_FAILURE);
+		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 	}
 	std::vector<IDXGIAdapter*> adapters;
 	IDXGIAdapter* p_tmp_adapter = nullptr;
@@ -249,14 +253,20 @@ int main()
 		nullptr
 	);
 
-	// 仮テクスチャ生成
-	for (auto& rgba : texture_data)
+	// COM初期化
+	if (FAILED(CoInitializeEx(0, COINIT_MULTITHREADED)))
 	{
-		rgba.r = std::rand() % 256;
-		rgba.g = std::rand() % 256;
-		rgba.b = std::rand() % 256;
-		rgba.a = 255;
+		OUT();
 	}
+
+	// テクスチャ読み込み
+	DirectX::TexMetadata tex_test_meta{};
+	DirectX::ScratchImage tex_test_img{};
+	if (FAILED(DirectX::LoadFromWICFile(L"../Resource/tex_test.jpg", DirectX::WIC_FLAGS_NONE, &tex_test_meta, tex_test_img)))
+	{
+		OUT();
+	}
+	
 
 #ifdef _DEBUG
 	DebugOutputFormatString("Show window test.");
