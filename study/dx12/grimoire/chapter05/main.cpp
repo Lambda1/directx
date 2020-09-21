@@ -44,12 +44,9 @@ struct Vertex
 };
 
 // テクスチャ情報
-struct TexRGBA
-{
-	unsigned char r, g, b, a;
-};
-
-std::vector<TexRGBA> texture_data(256 * 256);
+const DirectX::Image* img = nullptr;
+DirectX::TexMetadata tex_test_meta{};
+DirectX::ScratchImage tex_test_img{};
 
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -175,34 +172,31 @@ void InitDirectX(HWND& hwnd)
 	heap_desc.NodeMask = 0;
 	heap_desc.NumDescriptors = 2;
 	heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	if (FAILED(p_device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&rtv_heaps))))
-	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-	}
+	if (FAILED(p_device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&rtv_heaps)))) { OUT(); }
 
+	// sRGBレンダターゲットビュー設定
+	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+	rtv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 	// スワップチェーンとメモリの紐づけ
 	DXGI_SWAP_CHAIN_DESC swc_desc = {};
-	if (FAILED(p_swap_chain->GetDesc(&swc_desc)))
-	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-	}
+	if (FAILED(p_swap_chain->GetDesc(&swc_desc))) { OUT(); }
 	back_buffers.resize(swc_desc.BufferCount);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 	for (int index = 0; index < swc_desc.BufferCount; ++index)
 	{
-		if (FAILED(p_swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffers[index]))))
-		{
-			std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-		}
-		handle.ptr += (index * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
-		p_device->CreateRenderTargetView(back_buffers[index], nullptr, handle);
+		if (FAILED(p_swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffers[index])))) { OUT(); }
+		p_device->CreateRenderTargetView(back_buffers[index], &rtv_desc, handle);
+		handle.ptr += p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
 	// フェンス生成
-	if (FAILED(p_device->CreateFence(fence_val, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&p_fence))))
-	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-	}
+	if (FAILED(p_device->CreateFence(fence_val, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&p_fence)))) { OUT(); }
+}
+
+size_t AlignmentedSize(size_t size, size_t alignment)
+{
+	return size + alignment - size % alignment;
 }
 
 void EnableDebugLayer()
@@ -260,13 +254,12 @@ int main()
 	}
 
 	// テクスチャ読み込み
-	DirectX::TexMetadata tex_test_meta{};
-	DirectX::ScratchImage tex_test_img{};
-	if (FAILED(DirectX::LoadFromWICFile(L"../Resource/tex_test.jpg", DirectX::WIC_FLAGS_NONE, &tex_test_meta, tex_test_img)))
+	if (FAILED(DirectX::LoadFromWICFile(L"../Resource/tex_test.png", DirectX::WIC_FLAGS_NONE, &tex_test_meta, tex_test_img)))
 	{
 		OUT();
 	}
-	
+	// 画像抽出
+	img = tex_test_img.GetImage(0, 0, 0);
 
 #ifdef _DEBUG
 	DebugOutputFormatString("Show window test.");
@@ -302,6 +295,7 @@ int main()
 	heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
+	// リソース設定
 	D3D12_RESOURCE_DESC res_desc = {};
 	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	res_desc.Width = sizeof(vertices);
@@ -350,37 +344,126 @@ int main()
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
 	ib_view.SizeInBytes = sizeof(indices);
 
-	// テクスチャバッファの作成
-	heap_prop = {};
-	heap_prop.Type = D3D12_HEAP_TYPE_CUSTOM;
-	heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	heap_prop.CreationNodeMask = 0;
-	heap_prop.VisibleNodeMask = 0;
-	
+	// アップロード用リソース作成
+	D3D12_HEAP_PROPERTIES upload_heap_prop = {};
+	upload_heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	upload_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	upload_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	upload_heap_prop.CreationNodeMask = 0;
+	upload_heap_prop.VisibleNodeMask = 0;
+	// リソース設定
 	res_desc = {};
-	res_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	res_desc.Width = 256;
-	res_desc.Height = 256;
+	res_desc.Format = DXGI_FORMAT_UNKNOWN;
+	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	res_desc.Width = AlignmentedSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * img->height;
+	res_desc.Height = 1;
 	res_desc.DepthOrArraySize = 1;
+	res_desc.MipLevels = 1;
+	res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 	res_desc.SampleDesc.Count = 1;
 	res_desc.SampleDesc.Quality = 0;
+	// 中間バッファ作成
+	ID3D12Resource* upload_buff = nullptr;
+	if (FAILED(p_device->CreateCommittedResource(&upload_heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&upload_buff))))
+	{
+		OUT();
+	}
+
+	// コピー先リソース作成
+	D3D12_HEAP_PROPERTIES tex_heap_prop = {};
+	tex_heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+	tex_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	tex_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	tex_heap_prop.CreationNodeMask = 0;
+	tex_heap_prop.VisibleNodeMask = 0;
+
+	res_desc = {};
+	res_desc.Format = tex_test_meta.format;
+	res_desc.Width = tex_test_meta.width;
+	res_desc.Height = tex_test_meta.height;
+	res_desc.DepthOrArraySize = tex_test_meta.arraySize;
+	res_desc.SampleDesc.Count = tex_test_meta.mipLevels;
+	res_desc.SampleDesc.Quality = 0;
 	res_desc.MipLevels = 1;
-	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	res_desc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(tex_test_meta.dimension);
 	res_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
+	// テクスチャバッファの作成
 	ID3D12Resource* tex_buff = nullptr;
-	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&tex_buff))))
+	if (FAILED(p_device->CreateCommittedResource(&tex_heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&tex_buff))))
 	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		OUT();
 	}
 
-	// データ転送
-	if (FAILED(tex_buff->WriteToSubresource(0, nullptr, texture_data.data(), sizeof(TexRGBA) * 256, sizeof(TexRGBA) * texture_data.size())))
+	// アップロードリソースへのマップ
+	uint8_t* map_for_img = nullptr;
+	if (FAILED(upload_buff->Map(0, nullptr, (void**)&map_for_img))) { OUT(); }
+	
+	auto src_address = img->pixels;
+	auto row_pitch = AlignmentedSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+	for (int y = 0; y < img->height; ++y)
 	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		std::copy_n(src_address, row_pitch, map_for_img);
+		src_address += img->rowPitch;
+		map_for_img += row_pitch;
 	}
+	upload_buff->Unmap(0, nullptr);
+
+	// リソースへコピー
+	UINT nrow;
+	UINT64 rowsize, size;
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+	auto desc = tex_buff->GetDesc();
+	p_device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &nrow, &rowsize, &size);
+	
+	D3D12_TEXTURE_COPY_LOCATION src = {};
+	src.PlacedFootprint = footprint;
+	src.pResource = upload_buff;
+	src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	src.PlacedFootprint.Offset = 0;
+	src.PlacedFootprint.Footprint.Width = tex_test_meta.width;
+	src.PlacedFootprint.Footprint.Height = tex_test_meta.height;
+	src.PlacedFootprint.Footprint.Depth = tex_test_meta.depth;
+	src.PlacedFootprint.Footprint.RowPitch = AlignmentedSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+	src.PlacedFootprint.Footprint.Format = img->format;
+
+	D3D12_TEXTURE_COPY_LOCATION dst = {};
+	dst.pResource = tex_buff;
+	dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	dst.SubresourceIndex = 0;
+
+	p_cmd_list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+	// バリアとフェンスの設定
+	D3D12_RESOURCE_BARRIER barrier_desc = {};
+	barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier_desc.Transition.pResource = tex_buff;
+	barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+	barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+
+	p_cmd_list->ResourceBarrier(1, &barrier_desc);
+	p_cmd_list->Close();
+
+	// コマンドリスト実行
+	ID3D12CommandList* cmd_lists[] = { p_cmd_list };
+	p_cmd_queue->ExecuteCommandLists(1, cmd_lists);
+	// フェンス処理
+	p_cmd_queue->Signal(p_fence, ++fence_val);
+	if (p_fence->GetCompletedValue() != fence_val)
+	{
+		auto event = CreateEvent(nullptr, false, false, nullptr); // イベントハンドル取得
+		p_fence->SetEventOnCompletion(fence_val, event);
+
+		WaitForSingleObject(event, INFINITE); // イベント終了待ち
+
+		CloseHandle(event);
+	}
+	p_cmd_allocator->Reset();
+	p_cmd_list->Reset(p_cmd_allocator, nullptr);
 
 	// ディスクリプタヒープ作成
 	ID3D12DescriptorHeap* tex_desc_heap = nullptr;
@@ -391,12 +474,12 @@ int main()
 	desc_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	if (FAILED(p_device->CreateDescriptorHeap(&desc_heap_desc, IID_PPV_ARGS(&tex_desc_heap))))
 	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		OUT();
 	}
 
 	// シェーダリソースビュー作成
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-	srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srv_desc.Format = tex_test_meta.format;
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MipLevels = 1;
@@ -483,7 +566,7 @@ int main()
 
 	// レンダーターゲット設定
 	g_pipeline_desc.NumRenderTargets = 1;
-	g_pipeline_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	g_pipeline_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 
 	// アンチエイリアシング設定
 	g_pipeline_desc.SampleDesc.Count = 1;
@@ -589,7 +672,7 @@ int main()
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		p_cmd_list->ResourceBarrier(1, &barrier_desc);
-		
+
 		p_cmd_list->SetPipelineState(p_pipeline_state);
 
 		// RT設定
@@ -608,7 +691,7 @@ int main()
 		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
 		p_cmd_list->IASetIndexBuffer(&ib_view);
-	
+
 		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
 		p_cmd_list->SetDescriptorHeaps(1, &tex_desc_heap);
 		p_cmd_list->SetGraphicsRootDescriptorTable(0, tex_desc_heap->GetGPUDescriptorHandleForHeapStart());
