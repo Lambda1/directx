@@ -21,8 +21,8 @@
 #define OUT() std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
 
 // グローバル変数
-const int window_width = 800;
-const int window_height = 600;
+const int window_width = 1000;
+const int window_height = 680;
 // D3D12
 ID3D12Device* p_device = nullptr;
 IDXGIFactory6* p_dxgi_factory = nullptr;
@@ -279,10 +279,10 @@ int main()
 	// 頂点データ
 	Vertex vertices[] =
 	{
-		{{-0.4f, -0.7f, 0.0f}, {0.0f, 1.0f}},
-		{{-0.4f,  0.7f, 0.0f}, {0.0f, 0.0f}},
-		{{ 0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}},
-		{{ 0.4f,  0.7f, 0.0f}, {1.0f, 0.0f}},
+		{{  0.0f, 100.0f, 0.0f}, {0.0f, 1.0f}},
+		{{  0.0f,   0.0f, 0.0f}, {0.0f, 0.0f}},
+		{{100.0f, 100.0f, 0.0f}, {1.0f, 1.0f}},
+		{{100.0f,   0.0f, 0.0f}, {1.0f, 0.0f}},
 	};
 	// インデックスデータ
 	unsigned short indices[] =
@@ -293,6 +293,10 @@ int main()
 
 	// 行列
 	DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
+	matrix.r[0].m128_f32[0] = 2.0f / window_width;
+	matrix.r[1].m128_f32[1] = -2.0f / window_height;
+	matrix.r[3].m128_f32[0] = -1.0f;
+	matrix.r[3].m128_f32[1] = 1.0f;
 	// 定数バッファ作成
 	ID3D12Resource* const_buffer = nullptr;
 	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&const_buffer))))
@@ -598,17 +602,11 @@ int main()
 	desc_tbl_range[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// ルートパラメータの作成
-	D3D12_ROOT_PARAMETER root_param[2] = {};
-	// ピクセルシェーダ
-	root_param[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	root_param[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	root_param[0].DescriptorTable.pDescriptorRanges = desc_tbl_range;
-	root_param[0].DescriptorTable.NumDescriptorRanges = 1;
-	// 頂点シェーダ
-	root_param[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	root_param[1].DescriptorTable.pDescriptorRanges = &desc_tbl_range[1];
-	root_param[1].DescriptorTable.NumDescriptorRanges = 1;
-	root_param[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	D3D12_ROOT_PARAMETER root_param = {};
+	root_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	root_param.DescriptorTable.pDescriptorRanges = desc_tbl_range;
+	root_param.DescriptorTable.NumDescriptorRanges = 2;
+	root_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	// サンプラ設定
 	D3D12_STATIC_SAMPLER_DESC sampler_desc = {};
@@ -626,8 +624,8 @@ int main()
 	ID3D12RootSignature* p_root_signature = nullptr;
 	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
 	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	root_signature_desc.pParameters = root_param;
-	root_signature_desc.NumParameters = 2;
+	root_signature_desc.pParameters = &root_param;
+	root_signature_desc.NumParameters = 1;
 	root_signature_desc.pStaticSamplers = &sampler_desc;
 	root_signature_desc.NumStaticSamplers = 1;
 
