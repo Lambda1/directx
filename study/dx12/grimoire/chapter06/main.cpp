@@ -279,10 +279,10 @@ int main()
 	// 頂点データ
 	Vertex vertices[] =
 	{
-		{{  0.0f, 100.0f, 0.0f}, {0.0f, 1.0f}},
-		{{  0.0f,   0.0f, 0.0f}, {0.0f, 0.0f}},
-		{{100.0f, 100.0f, 0.0f}, {1.0f, 1.0f}},
-		{{100.0f,   0.0f, 0.0f}, {1.0f, 0.0f}},
+		{{ -1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+		{{ -1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
+		{{  1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+		{{  1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
 	};
 	// インデックスデータ
 	unsigned short indices[] =
@@ -291,22 +291,27 @@ int main()
 		2, 1, 3
 	};
 
-	// 行列
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
-	matrix.r[0].m128_f32[0] = 2.0f / window_width;
-	matrix.r[1].m128_f32[1] = -2.0f / window_height;
-	matrix.r[3].m128_f32[0] = -1.0f;
-	matrix.r[3].m128_f32[1] = 1.0f;
+	// ワールド行列
+	float angle = 0.0f;
+	DirectX::XMMATRIX world_matrix = DirectX::XMMatrixIdentity();
+	// ビュー行列
+	DirectX::XMFLOAT3 eye(0.0f, 0.0f, -5.0f);
+	DirectX::XMFLOAT3 target(0.0f, 0.0f, 0.0f);
+	DirectX::XMFLOAT3 up(0.0f, 1.0f, 0.0f);
+	DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
+	// プロジェクション行列
+	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(window_width) / static_cast<float>(window_height), 1.0f, 10.0f);
+
 	// 定数バッファ作成
 	ID3D12Resource* const_buffer = nullptr;
-	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&const_buffer))))
+	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(world_matrix) + 0xff) & ~0xff), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&const_buffer))))
 	{
 		OUT();
 	}
 	// 定数コピー
 	DirectX::XMMATRIX* map_matrix = nullptr;
 	if (FAILED(const_buffer->Map(0, nullptr, (void**)&map_matrix))) { OUT(); }
-	*map_matrix = matrix;
+	*map_matrix = world_matrix;
 
 	// 頂点バッファ生成
 	D3D12_HEAP_PROPERTIES heap_prop = {};
@@ -681,6 +686,11 @@ int main()
 			break;
 		}
 
+		// 行列計算
+		world_matrix = DirectX::XMMatrixRotationY(angle);
+		*map_matrix = world_matrix * view * projection;
+		angle += 1.0f / (32.0f);
+		
 		// D3D12
 		UINT bb_idx = p_swap_chain->GetCurrentBackBufferIndex();
 		// バリア設定
