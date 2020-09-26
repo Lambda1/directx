@@ -596,7 +596,10 @@ int main()
 	g_pipeline_desc.RasterizerState.AntialiasedLineEnable = false;
 	g_pipeline_desc.RasterizerState.ForcedSampleCount = 0;
 	g_pipeline_desc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-	g_pipeline_desc.DepthStencilState.DepthEnable = false;
+	g_pipeline_desc.DepthStencilState.DepthEnable = true;
+	g_pipeline_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	g_pipeline_desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	g_pipeline_desc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	g_pipeline_desc.DepthStencilState.StencilEnable = false;
 
 	// ブレンドステート設定
@@ -658,6 +661,47 @@ int main()
 	sampler_desc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 
+	// 深度バッファ
+	D3D12_RESOURCE_DESC depth_res_desc = {};
+	depth_res_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depth_res_desc.Width = window_width;
+	depth_res_desc.Height = window_height;
+	depth_res_desc.DepthOrArraySize = 1;
+	depth_res_desc.Format = DXGI_FORMAT_D32_FLOAT;
+	depth_res_desc.SampleDesc.Count = 1;
+	depth_res_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	// 深度値用ヒーププロパティ
+	D3D12_HEAP_PROPERTIES depth_heap_prop = {};
+	depth_heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+	depth_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	depth_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	// クリアバリュー
+	D3D12_CLEAR_VALUE depth_clear_value = {};
+	depth_clear_value.DepthStencil.Depth = 1.0f;
+	depth_clear_value.Format = DXGI_FORMAT_D32_FLOAT;
+	
+	ID3D12Resource* depth_buffer = nullptr;
+	if (FAILED(p_device->CreateCommittedResource(&depth_heap_prop, D3D12_HEAP_FLAG_NONE, &depth_res_desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depth_clear_value, IID_PPV_ARGS(&depth_buffer))))
+	{
+		OUT();
+	}
+
+	// 深度用ディスクリプタヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC dsv_heap_desc = {};
+	dsv_heap_desc.NumDescriptors = 1;
+	dsv_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+	ID3D12DescriptorHeap* dsv_heap = nullptr;
+	if (FAILED(p_device->CreateDescriptorHeap(&dsv_heap_desc, IID_PPV_ARGS(&dsv_heap)))) { OUT(); }
+
+	// デプスステンシルビュー
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
+	dsv_desc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsv_desc.Flags = D3D12_DSV_FLAG_NONE;
+	
+	p_device->CreateDepthStencilView(depth_buffer, &dsv_desc, dsv_heap->GetCPUDescriptorHandleForHeapStart());
+
 	// ルートシグネチャの作成
 	ID3D12RootSignature* p_root_signature = nullptr;
 	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
@@ -682,10 +726,7 @@ int main()
 	g_pipeline_desc.pRootSignature = p_root_signature;
 
 	// グラフィックパイプラインステートオブジェクト生成
-	if (FAILED(p_device->CreateGraphicsPipelineState(&g_pipeline_desc, IID_PPV_ARGS(&p_pipeline_state))))
-	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-	}
+	if (FAILED(p_device->CreateGraphicsPipelineState(&g_pipeline_desc, IID_PPV_ARGS(&p_pipeline_state)))) { OUT(); }
 
 	// ビューポート設定
 	D3D12_VIEWPORT view_port = {};
@@ -734,11 +775,14 @@ int main()
 		// RT設定
 		auto rtv_h = rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		rtv_h.ptr += bb_idx * p_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		p_cmd_list->OMSetRenderTargets(1, &rtv_h, false, nullptr);
+		auto dsv_h = dsv_heap->GetCPUDescriptorHandleForHeapStart();
+		p_cmd_list->OMSetRenderTargets(1, &rtv_h, false, &dsv_h);
 
 		// RTクリア
 		float clear_color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		p_cmd_list->ClearRenderTargetView(rtv_h, clear_color, 0, nullptr);
+		// 深度バッファクリア
+		p_cmd_list->ClearDepthStencilView(dsv_h, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 		// 描画命令
 		p_cmd_list->RSSetViewports(1, &view_port);
