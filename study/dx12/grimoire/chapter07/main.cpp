@@ -50,6 +50,29 @@ const DirectX::Image* img = nullptr;
 DirectX::TexMetadata tex_test_meta{};
 DirectX::ScratchImage tex_test_img{};
 
+// PMD
+struct PMDHeader
+{
+	float version;       // バージョン
+	char model_name[20]; // モデル名
+	char comment[256];   // モデルコメント
+};
+
+PMDHeader pmd_header;
+
+struct PMDVertex
+{
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT3 normal;
+	DirectX::XMFLOAT2 uv;
+	
+	unsigned short bone_no[2];
+	unsigned char bone_weight;
+	unsigned char edge_flg;
+};
+
+constexpr size_t pmd_vertex_size = 38;
+
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -275,32 +298,32 @@ int main()
 
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
+	
+	// PMD読み込み
+	char signature[3] = {};
+	std::FILE* fp = nullptr;
+	fopen_s(&fp, "../Model/初音ミク.pmd", "rb");
+	// ヘッダ
+	std::fread(signature, sizeof(signature), 1, fp);
+	std::fread(&pmd_header, sizeof(pmd_header), 1, fp);
+	// 頂点
+	unsigned int vertex_num = 0;
+	std::fread(&vertex_num, sizeof(vertex_num), 1, fp);
+	std::vector<unsigned char> vertices(vertex_num * pmd_vertex_size);
+	std::fread(vertices.data(), vertices.size(), 1, fp);
 
-	// 頂点データ
-	Vertex vertices[] =
-	{
-		{{ -1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-		{{ -1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
-		{{  1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-		{{  1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
-	};
-	// インデックスデータ
-	unsigned short indices[] =
-	{
-		0, 1, 2,
-		2, 1, 3
-	};
+	std::fclose(fp);
 
 	// ワールド行列
 	float angle = 0.0f;
 	DirectX::XMMATRIX world_matrix = DirectX::XMMatrixIdentity();
 	// ビュー行列
-	DirectX::XMFLOAT3 eye(0.0f, 0.0f, -5.0f);
-	DirectX::XMFLOAT3 target(0.0f, 0.0f, 0.0f);
+	DirectX::XMFLOAT3 eye(0.0f, 10.0f, -15.0f);
+	DirectX::XMFLOAT3 target(0.0f, 10.0f, 0.0f);
 	DirectX::XMFLOAT3 up(0.0f, 1.0f, 0.0f);
 	DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
 	// プロジェクション行列
-	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(window_width) / static_cast<float>(window_height), 1.0f, 10.0f);
+	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(window_width) / static_cast<float>(window_height), 1.0f, 100.0f);
 
 	// 定数バッファ作成
 	ID3D12Resource* const_buffer = nullptr;
@@ -321,25 +344,23 @@ int main()
 
 	// リソース設定
 	ID3D12Resource* vert_buff = nullptr;
-	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vert_buff))))
+	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(vertices.size()), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vert_buff))))
 	{
 		OUT();
 	}
 
 	// 頂点データのマップ
-	Vertex* vert_map = nullptr;
-	if (FAILED(vert_buff->Map(0, nullptr, (void**)&vert_map)))
-	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
-	}
+	unsigned char* vert_map = nullptr;
+	if (FAILED(vert_buff->Map(0, nullptr, (void**)&vert_map))) { OUT(); }
 	std::copy(std::begin(vertices), std::end(vertices), vert_map);
 	vert_buff->Unmap(0, nullptr);
 	// 頂点バッファビュー作成
 	D3D12_VERTEX_BUFFER_VIEW vb_view = {};
 	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
-	vb_view.SizeInBytes = sizeof(vertices);
-	vb_view.StrideInBytes = sizeof(vertices[0]);
+	vb_view.SizeInBytes = vertices.size();
+	vb_view.StrideInBytes = pmd_vertex_size;
 	// インデックスバッファ生成
+	std::vector<unsigned short> indices(100);
 	ID3D12Resource* idx_buffer = nullptr;
 	D3D12_RESOURCE_DESC res_desc = {};
 	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -354,7 +375,7 @@ int main()
 	res_desc.Width = sizeof(indices);
 	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&idx_buffer))))
 	{
-		std::cout << __LINE__ << std::endl; std::exit(EXIT_FAILURE);
+		OUT();
 	}
 	// インデックスデータのマップ
 	unsigned short* mapped_idx = nullptr;
@@ -366,7 +387,7 @@ int main()
 	ib_view.BufferLocation = idx_buffer->GetGPUVirtualAddress();
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
 	ib_view.SizeInBytes = sizeof(indices);
-
+	
 	// アップロード用リソース作成
 	D3D12_HEAP_PROPERTIES upload_heap_prop = {};
 	upload_heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -535,9 +556,27 @@ int main()
 			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
 		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		{
 			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
+		{
+			"BONE_NO", 0, DXGI_FORMAT_R16G16_UINT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		{
+			"WEIGHT", 0, DXGI_FORMAT_R8_UINT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		/*
+		{
+			"EDGE_FLG", 0, DXGI_FORMAT_R8_UINT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		*/
 	};
 
 	// シェーダのセット
@@ -711,7 +750,7 @@ int main()
 		p_cmd_list->RSSetViewports(1, &view_port);
 		p_cmd_list->RSSetScissorRects(1, &scissor_rect);
 		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
-		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
 		p_cmd_list->IASetIndexBuffer(&ib_view);
 
@@ -719,7 +758,7 @@ int main()
 		p_cmd_list->SetDescriptorHeaps(1, &basic_desc_heap);
 		p_cmd_list->SetGraphicsRootDescriptorTable(0, basic_desc_heap->GetGPUDescriptorHandleForHeapStart());
 
-		p_cmd_list->DrawIndexedInstanced(6, 1, 0, 0, 0);
+		p_cmd_list->DrawInstanced(vertex_num, 1, 0, 0);
 
 		p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
