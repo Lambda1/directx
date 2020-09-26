@@ -311,6 +311,11 @@ int main()
 	std::fread(&vertex_num, sizeof(vertex_num), 1, fp);
 	std::vector<unsigned char> vertices(vertex_num * pmd_vertex_size);
 	std::fread(vertices.data(), vertices.size(), 1, fp);
+	// インデックス
+	unsigned int indices_num;
+	std::fread(&indices_num, sizeof(indices_num), 1, fp);
+	std::vector<unsigned short> indices(indices_num);
+	std::fread(indices.data(), indices.size() * sizeof(indices[0]), 1, fp);
 
 	std::fclose(fp);
 
@@ -360,20 +365,8 @@ int main()
 	vb_view.SizeInBytes = vertices.size();
 	vb_view.StrideInBytes = pmd_vertex_size;
 	// インデックスバッファ生成
-	std::vector<unsigned short> indices(100);
 	ID3D12Resource* idx_buffer = nullptr;
-	D3D12_RESOURCE_DESC res_desc = {};
-	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	res_desc.Width = sizeof(vertices);
-	res_desc.Height = 1;
-	res_desc.DepthOrArraySize = 1;
-	res_desc.MipLevels = 1;
-	res_desc.Format = DXGI_FORMAT_UNKNOWN;
-	res_desc.SampleDesc.Count = 1;
-	res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	res_desc.Width = sizeof(indices);
-	if (FAILED(p_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&idx_buffer))))
+	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&idx_buffer))))
 	{
 		OUT();
 	}
@@ -386,7 +379,7 @@ int main()
 	D3D12_INDEX_BUFFER_VIEW ib_view = {};
 	ib_view.BufferLocation = idx_buffer->GetGPUVirtualAddress();
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
-	ib_view.SizeInBytes = sizeof(indices);
+	ib_view.SizeInBytes = indices.size() * sizeof(indices[0]);
 	
 	// アップロード用リソース作成
 	D3D12_HEAP_PROPERTIES upload_heap_prop = {};
@@ -396,6 +389,7 @@ int main()
 	upload_heap_prop.CreationNodeMask = 0;
 	upload_heap_prop.VisibleNodeMask = 0;
 	// リソース設定
+	D3D12_RESOURCE_DESC res_desc = {};
 	res_desc = {};
 	res_desc.Format = DXGI_FORMAT_UNKNOWN;
 	res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -750,7 +744,7 @@ int main()
 		p_cmd_list->RSSetViewports(1, &view_port);
 		p_cmd_list->RSSetScissorRects(1, &scissor_rect);
 		p_cmd_list->SetGraphicsRootSignature(p_root_signature);
-		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+		p_cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		p_cmd_list->IASetVertexBuffers(0, 1, &vb_view);
 		p_cmd_list->IASetIndexBuffer(&ib_view);
 
@@ -758,7 +752,7 @@ int main()
 		p_cmd_list->SetDescriptorHeaps(1, &basic_desc_heap);
 		p_cmd_list->SetGraphicsRootDescriptorTable(0, basic_desc_heap->GetGPUDescriptorHandleForHeapStart());
 
-		p_cmd_list->DrawInstanced(vertex_num, 1, 0, 0);
+		p_cmd_list->DrawIndexedInstanced(indices_num, 1, 0, 0, 0);
 
 		p_cmd_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(back_buffers[bb_idx], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
