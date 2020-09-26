@@ -73,6 +73,13 @@ struct PMDVertex
 
 constexpr size_t pmd_vertex_size = 38;
 
+// シェーダへ渡す行列データ
+struct MatricesData
+{
+	DirectX::XMMATRIX world;
+	DirectX::XMMATRIX view_projection;
+};
+
 // WinAPI
 LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -332,14 +339,15 @@ int main()
 
 	// 定数バッファ作成
 	ID3D12Resource* const_buffer = nullptr;
-	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(world_matrix) + 0xff) & ~0xff), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&const_buffer))))
+	if (FAILED(p_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(MatricesData) + 0xff) & ~0xff), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&const_buffer))))
 	{
 		OUT();
 	}
 	// 定数コピー
-	DirectX::XMMATRIX* map_matrix = nullptr;
+	MatricesData* map_matrix = nullptr;
 	if (FAILED(const_buffer->Map(0, nullptr, (void**)&map_matrix))) { OUT(); }
-	*map_matrix = world_matrix;
+	map_matrix->world = world_matrix;
+	map_matrix->view_projection = view * projection;
 
 	// 頂点バッファ生成
 	D3D12_HEAP_PROPERTIES heap_prop = {};
@@ -645,7 +653,7 @@ int main()
 	// ルートパラメータの作成
 	D3D12_ROOT_PARAMETER root_param = {};
 	root_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	root_param.DescriptorTable.pDescriptorRanges = desc_tbl_range;
+	root_param.DescriptorTable.pDescriptorRanges = &desc_tbl_range[0];
 	root_param.DescriptorTable.NumDescriptorRanges = 2;
 	root_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
@@ -762,7 +770,8 @@ int main()
 
 		// 行列計算
 		world_matrix = DirectX::XMMatrixRotationY(angle);
-		*map_matrix = world_matrix * view * projection;
+		map_matrix->world = world_matrix;
+		map_matrix->view_projection = view* projection;
 		angle += 1.0f / (32.0f);
 		
 		// D3D12
