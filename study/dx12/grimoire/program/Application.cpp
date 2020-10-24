@@ -16,9 +16,10 @@ LRESULT WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpawam)
 Application::Application():
 	m_app_class_name(L"DirectX12_GRIMOIRE"),
 	m_window_width(960), m_window_height(720), m_window_title(L"DirectX12"),
-	m_hwnd{}, m_wnd_class{}
+	m_hwnd{}, m_wnd_class{},
+	m_device{nullptr},
+	m_dxgi_factory{nullptr}, m_swap_chain{nullptr}
 {
-
 }
 
 Application::~Application()
@@ -38,8 +39,12 @@ Application& Application::Instance()
 // 初期化
 void Application::Init()
 {
-	CreateGameWindow();
+	// ウィンドウ作成
+	CreateMyWindow();
 	ShowWindow(m_hwnd, SW_SHOW);
+	
+	// Direct3D12初期化
+	InitializeDXGI();
 
 	MSG msg = {};
 	while (true)
@@ -73,7 +78,7 @@ void Application::Terminate()
 // private
 
 // Window生成
-void Application::CreateGameWindow()
+void Application::CreateMyWindow()
 {
 	// ウィンドウクラス登録
 	m_wnd_class.cbSize = sizeof(WNDCLASSEX);
@@ -100,4 +105,45 @@ void Application::CreateGameWindow()
 		m_wnd_class.hInstance,
 		nullptr
 	);
+}
+
+// DXGI初期化
+void Application::InitializeDXGI()
+{
+	// DXGIFactoryオブジェクト生成
+	if(FAILED(CreateDXGIFactory(IID_PPV_ARGS(&m_dxgi_factory))))
+	{
+		ErrorHandling("CreateDXGIFactory is failed. :" + __LINE__);
+	}
+	// デバイスオブジェクト生成
+	D3D_FEATURE_LEVEL feature_levels[] = { D3D_FEATURE_LEVEL_12_1, D3D_FEATURE_LEVEL_12_0 };
+	IDXGIAdapter* adapter = SearchAdapter(L"Intel");
+	for (auto feature_level : feature_levels)
+	{
+		if (SUCCEEDED(D3D12CreateDevice(adapter, feature_level, IID_PPV_ARGS(&m_device)))) { break; }
+	}
+	if (!m_device) { ErrorHandling("D3D12CreateDevice is failed. :" + __LINE__); }
+}
+
+// アダプタ検索
+IDXGIAdapter* Application::SearchAdapter(const std::wstring& adapter_name)
+{
+	std::vector<IDXGIAdapter*> adapters;
+	// アダプタ列挙
+	IDXGIAdapter* tmp_adapter = nullptr;
+	for (int i = 0; m_dxgi_factory->EnumAdapters(i, &tmp_adapter) != DXGI_ERROR_NOT_FOUND; ++i) { adapters.emplace_back(tmp_adapter); }
+	// アダプタ検索
+	for (auto adapter : adapters)
+	{
+		DXGI_ADAPTER_DESC adapter_desc = {};
+		adapter->GetDesc(&adapter_desc);
+
+		std::wstring str_desc = adapter_desc.Description;
+		if (str_desc.find(adapter_name.c_str()) != std::string::npos)
+		{
+			OutputLog(L"[Adapter] " + str_desc);
+			return adapter;
+		}
+	}
+	return nullptr;
 }
