@@ -33,6 +33,7 @@ private:
 
 	void CreateMyWindow();
 	void InitializeDXGI();
+	void InitializeCommand();
 
 	IDXGIAdapter* SearchAdapter(const std::wstring &adapter_name);
 
@@ -44,9 +45,14 @@ private:
 	HWND m_hwnd;
 	WNDCLASSEX m_wnd_class;
 	// DirectXŠÖŒW
+	// DXGI
 	ID3D12Device* m_device;
 	IDXGIFactory6* m_dxgi_factory;
 	IDXGISwapChain4* m_swap_chain;
+	// Command
+	ID3D12CommandAllocator* m_cmd_allocator;
+	ID3D12GraphicsCommandList* m_cmd_list;
+	ID3D12CommandQueue* m_cmd_queue;
 };
 
 #endif

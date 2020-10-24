@@ -18,7 +18,8 @@ Application::Application():
 	m_window_width(960), m_window_height(720), m_window_title(L"DirectX12"),
 	m_hwnd{}, m_wnd_class{},
 	m_device{nullptr},
-	m_dxgi_factory{nullptr}, m_swap_chain{nullptr}
+	m_dxgi_factory{nullptr}, m_swap_chain{nullptr},
+	m_cmd_allocator{nullptr}, m_cmd_list{nullptr}, m_cmd_queue{nullptr}
 {
 }
 
@@ -45,6 +46,7 @@ void Application::Init()
 	
 	// Direct3D12初期化
 	InitializeDXGI();
+	InitializeCommand();
 
 	MSG msg = {};
 	while (true)
@@ -122,7 +124,32 @@ void Application::InitializeDXGI()
 	{
 		if (SUCCEEDED(D3D12CreateDevice(adapter, feature_level, IID_PPV_ARGS(&m_device)))) { break; }
 	}
+	// MONZA::Exception
 	if (!m_device) { ErrorHandling("D3D12CreateDevice is failed. :" + __LINE__); }
+}
+// コマンド初期化
+void Application::InitializeCommand()
+{
+	// コマンドアロケータ生成
+	if (FAILED(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmd_allocator))))
+	{
+		ErrorHandling("CreateCommandAllocator is faild. :" + __LINE__);
+	}
+	// コマンドリスト生成
+	if (FAILED(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmd_allocator, nullptr, IID_PPV_ARGS(&m_cmd_list))))
+	{
+		ErrorHandling("CreateCommandList is failed. :" + __LINE__);
+	}
+	// コマンドキュー生成
+	D3D12_COMMAND_QUEUE_DESC cmd_queue_desc = {};
+	cmd_queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	cmd_queue_desc.NodeMask = 0;
+	cmd_queue_desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	cmd_queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	if (FAILED(m_device->CreateCommandQueue(&cmd_queue_desc, IID_PPV_ARGS(&m_cmd_queue))))
+	{
+		ErrorHandling("CreateCommandQueue is failed. :" + __LINE__);
+	}
 }
 
 // アダプタ検索
