@@ -144,6 +144,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\MyDirect3D12\MyDirect3D12.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\MyDirect3D12\MyDirect3D12.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
