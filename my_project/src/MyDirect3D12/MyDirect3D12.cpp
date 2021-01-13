@@ -2,11 +2,11 @@
 
 namespace mla
 {
-	MyDirect3D12::MyDirect3D12(const std::wstring &adapter_name)
+	MyDirect3D12::MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name)
 	{
 		// アダプタの取得
 		CheckSuccess(CreateDXGIFactory(IID_PPV_ARGS(m_dxgi_factory.ReleaseAndGetAddressOf())), "ERROR: CreateDXGIFactory");
-		auto adapter = GetHardwareAdapter(adapter_name);
+		WRL::ComPtr<IDXGIAdapter> adapter = GetHardwareAdapter(adapter_name);
 		// デバイスオブジェクトの作成
 		CheckSuccess(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_device.ReleaseAndGetAddressOf())), "ERROR: D3D12CreateDevice"); // MONZA
 		
@@ -21,6 +21,22 @@ namespace mla
 		cmd_queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // デフォルト
 		cmd_queue_desc.NodeMask = 0; // 1つのGPUのみ
 		CheckSuccess(m_device->CreateCommandQueue(&cmd_queue_desc, IID_PPV_ARGS(m_cmd_queue.ReleaseAndGetAddressOf())), "ERROR: CreateCommandQueue");
+
+		// スワップチェーンの作成
+		DXGI_SWAP_CHAIN_DESC1 swap_chain_desc = {};
+		swap_chain_desc.Width = window_width;
+		swap_chain_desc.Height = window_height;
+		swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // ピクセルフォーマット
+		swap_chain_desc.Stereo = false; // 立体視
+		swap_chain_desc.SampleDesc.Count = 1; // サンプル回数(AA)
+		swap_chain_desc.SampleDesc.Quality = 0; // サンプル品質(AA)
+		swap_chain_desc.BufferUsage = DXGI_USAGE_BACK_BUFFER; // 使用法
+		swap_chain_desc.BufferCount = 2;
+		swap_chain_desc.Scaling = DXGI_SCALING_STRETCH; // 伸縮
+		swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // フレームバッファの内容維持
+		swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED; // アルファ値はGPUに任せる
+		swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // ウィンドウとフルスクの切り替え可能
+		CheckSuccess(m_dxgi_factory->CreateSwapChainForHwnd(m_cmd_queue.Get(), hwnd, &swap_chain_desc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(m_dxgi_swap_chain.ReleaseAndGetAddressOf())), "ERROR: CreateSwapChainForHwnd");
 	}
 
 	MyDirect3D12::~MyDirect3D12()

@@ -22,7 +22,7 @@ namespace mla
 		
 		WRL::ComPtr<IDXGIAdapter> GetHardwareAdapter(const std::wstring &adapter_name);
 	public:
-		MyDirect3D12(const std::wstring &adapter_name = L"Intel");
+		MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name = L"Intel");
 		~MyDirect3D12();
 
 	private:

@@ -67,7 +67,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ShowWindow(hwnd, SW_SHOW);
 
 	// D3D12‰Šú‰»
-	mla::MyDirect3D12 my_d3d{};
+	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height};
 
 	// ƒƒCƒ“ˆ—
 	MSG msg = {};
