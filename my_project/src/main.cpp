@@ -1,3 +1,5 @@
+#include "MyDirect3D12/MyDirect3D12.hpp"
+
 #include <Windows.h>
 
 #include <iostream>
@@ -63,6 +65,9 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	HWND hwnd = InitializeWindowClass(&wnd_class_ex, app_name, title_name, window_height, window_height);
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
+
+	// D3D12初期化
+	mla::MyDirect3D12 my_d3d{};
 
 	// メイン処理
 	MSG msg = {};
