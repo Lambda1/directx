@@ -2,15 +2,25 @@
 
 namespace mla
 {
-	MyDirect3D12::MyDirect3D12(const std::wstring &adapter_name):
-		m_device{nullptr},
-		m_dxgi_factory{nullptr}, m_dxgi_swap_chain{nullptr}
+	MyDirect3D12::MyDirect3D12(const std::wstring &adapter_name)
 	{
 		// アダプタの取得
-		CheckSuccess(CreateDXGIFactory(IID_PPV_ARGS(&m_dxgi_factory)), "ERROR: CreateDXGIFactory");
-		IDXGIAdapter* adapter = GetHardwareAdapter(adapter_name);
-		// デバイスオブジェクトの生成
-		CheckSuccess(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_device)), "ERROR: D3D12CreateDevice");
+		CheckSuccess(CreateDXGIFactory(IID_PPV_ARGS(m_dxgi_factory.ReleaseAndGetAddressOf())), "ERROR: CreateDXGIFactory");
+		auto adapter = GetHardwareAdapter(adapter_name);
+		// デバイスオブジェクトの作成
+		CheckSuccess(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_device.ReleaseAndGetAddressOf())), "ERROR: D3D12CreateDevice"); // MONZA
+		
+		// コマンドアロケータの作成
+		CheckSuccess(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(m_cmd_allocator.ReleaseAndGetAddressOf())), "ERROR: CreateCommandAllocator");
+		// コマンドリストの作成
+		CheckSuccess(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmd_allocator.Get(), nullptr, IID_PPV_ARGS(m_cmd_list.ReleaseAndGetAddressOf())), "ERROR: CreateCommandList");
+		// コマンドキューの作成
+		D3D12_COMMAND_QUEUE_DESC cmd_queue_desc = {};
+		cmd_queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // 全コマンドリストを実行可能
+		cmd_queue_desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; // デフォルト
+		cmd_queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; // デフォルト
+		cmd_queue_desc.NodeMask = 0; // 1つのGPUのみ
+		CheckSuccess(m_device->CreateCommandQueue(&cmd_queue_desc, IID_PPV_ARGS(m_cmd_queue.ReleaseAndGetAddressOf())), "ERROR: CreateCommandQueue");
 	}
 
 	MyDirect3D12::~MyDirect3D12()
@@ -27,18 +37,18 @@ namespace mla
 			std::exit(EXIT_FAILURE);
 		}
 	}
-	IDXGIAdapter* MyDirect3D12::GetHardwareAdapter(const std::wstring& adapter_name)
+	WRL::ComPtr<IDXGIAdapter> MyDirect3D12::GetHardwareAdapter(const std::wstring& adapter_name)
 	{
 		// アダプタ列挙
-		std::vector<IDXGIAdapter*> adapters;
+		std::vector<WRL::ComPtr<IDXGIAdapter>> adapters;
 		for (int i = 0;; ++i)
 		{
-			IDXGIAdapter* tmp = nullptr;
-			if (m_dxgi_factory->EnumAdapters(i, &tmp) == DXGI_ERROR_NOT_FOUND) { break; }
+			WRL::ComPtr<IDXGIAdapter> tmp = nullptr;
+			if (m_dxgi_factory->EnumAdapters(i, tmp.ReleaseAndGetAddressOf()) == DXGI_ERROR_NOT_FOUND) { break; }
 			adapters.emplace_back(tmp);
 		}
 		// アダプタ取得
-		IDXGIAdapter* adapter = nullptr;
+		WRL::ComPtr<IDXGIAdapter> adapter = nullptr;
 		for (auto adpt : adapters)
 		{
 			DXGI_ADAPTER_DESC adpt_desc{};
@@ -46,7 +56,6 @@ namespace mla
 			
 			std::wstring adpt_str = adpt_desc.Description;
 			if (!adapter && adpt_str.find(adapter_name) != std::wstring::npos) { adapter = adpt; }
-			else { adpt->Release(); }
 		}
 		return adapter;
 	}
