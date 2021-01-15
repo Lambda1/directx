@@ -37,6 +37,14 @@ namespace mla
 		swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED; // アルファ値はGPUに任せる
 		swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // ウィンドウとフルスクの切り替え可能
 		CheckSuccess(m_dxgi_factory->CreateSwapChainForHwnd(m_cmd_queue.Get(), hwnd, &swap_chain_desc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(m_dxgi_swap_chain.ReleaseAndGetAddressOf())), "ERROR: CreateSwapChainForHwnd");
+
+		// ディスクリプタヒープの作成(RTV)
+		D3D12_DESCRIPTOR_HEAP_DESC rtv_heap_desc{};
+		rtv_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		rtv_heap_desc.NodeMask = 0;
+		rtv_heap_desc.NumDescriptors = 2;
+		rtv_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		CheckSuccess(m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(m_rtv_heaps.ReleaseAndGetAddressOf())), "ERROR: CreateDescriptorHeap");
 	}
 
 	MyDirect3D12::~MyDirect3D12()

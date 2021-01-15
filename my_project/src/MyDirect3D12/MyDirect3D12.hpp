@@ -32,6 +32,7 @@ namespace mla
 		WRL::ComPtr<ID3D12CommandAllocator> m_cmd_allocator;
 		WRL::ComPtr<ID3D12GraphicsCommandList> m_cmd_list;
 		WRL::ComPtr<ID3D12CommandQueue> m_cmd_queue;
+		WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heaps;
 	};
 }
 
