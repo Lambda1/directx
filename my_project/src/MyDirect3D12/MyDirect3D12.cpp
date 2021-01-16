@@ -49,9 +49,9 @@ namespace mla
 		// バッファとディスクリプタの関連付け
 		m_back_buffers.resize(swap_chain_desc.BufferCount);
 		D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
-		for (int i = 0; i < swap_chain_desc.BufferCount; ++i)
+		for (UINT i = 0; i < swap_chain_desc.BufferCount; ++i)
 		{
-			m_device->CreateRenderTargetView(m_back_buffers[i], nullptr, handle);
+			m_device->CreateRenderTargetView(m_back_buffers[i], nullptr, handle); // D3D12: Removing Device.
 			handle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
 	}
@@ -59,7 +59,49 @@ namespace mla
 	MyDirect3D12::~MyDirect3D12()
 	{
 	}
+
+	// 画面クリア
+	void MyDirect3D12::ClearRenderTarget(const FLOAT *col)
+	{
+		const auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		m_cmd_list->ClearRenderTargetView(rtv_h, col, 0, nullptr);
+	}
+	// 描画開始処理
+	void MyDirect3D12::BeginDraw()
+	{
+		// レンダーターゲットの設定
+		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
+		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		const auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		rtv_h.ptr += (static_cast<SIZE_T>(bb_idx) * static_cast<SIZE_T>(rtv_inc_size));
+		m_cmd_list->OMSetRenderTargets(1, &rtv_h, true, nullptr);
+	}
+	// 描画終了処理
+	void MyDirect3D12::EndDraw()
+	{
+		// クローズコマンド
+		m_cmd_list->Close();
+
+		// コマンドリストの実行
+		ID3D12CommandList* cmd_lists[] = {m_cmd_list.Get()};
+		m_cmd_queue->ExecuteCommandLists(1, cmd_lists);
+
+		// リセット
+		m_cmd_allocator->Reset();
+		m_cmd_list->Reset(m_cmd_allocator.Get(), nullptr);
+	}
 	
+	// コマンドリストの取得
+	WRL::ComPtr<ID3D12GraphicsCommandList> MyDirect3D12::GetCommandList()
+	{
+		return m_cmd_list;
+	}
+	// スワップチェーンの取得
+	WRL::ComPtr<IDXGISwapChain4> MyDirect3D12::GetSwapChain()
+	{
+		return m_dxgi_swap_chain;
+	}
+
 	// private 
 	// エラーチェック処理
 	void MyDirect3D12::CheckSuccess(const HRESULT& is_ok, const std::string &err_msg)
@@ -82,7 +124,7 @@ namespace mla
 		}
 		// アダプタ取得
 		WRL::ComPtr<IDXGIAdapter> adapter = nullptr;
-		for (auto adpt : adapters)
+		for (WRL::ComPtr<IDXGIAdapter> adpt : adapters)
 		{
 			DXGI_ADAPTER_DESC adpt_desc{};
 			adpt->GetDesc(&adpt_desc);

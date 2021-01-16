@@ -73,6 +73,13 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	MSG msg = {};
 	while (true)
 	{
+		my_d3d.BeginDraw();
+		FLOAT col[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		my_d3d.ClearRenderTarget(col);
+		my_d3d.EndDraw();
+		
+		my_d3d.GetSwapChain().Get()->Present(1, 0);
+
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
