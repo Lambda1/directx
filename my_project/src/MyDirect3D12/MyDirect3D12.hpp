@@ -33,6 +33,7 @@ namespace mla
 		WRL::ComPtr<ID3D12GraphicsCommandList> m_cmd_list;
 		WRL::ComPtr<ID3D12CommandQueue> m_cmd_queue;
 		WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heaps;
+		std::vector<ID3D12Resource*> m_back_buffers;
 	};
 }
 

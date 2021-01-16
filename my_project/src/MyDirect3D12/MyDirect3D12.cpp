@@ -45,6 +45,15 @@ namespace mla
 		rtv_heap_desc.NumDescriptors = 2;
 		rtv_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		CheckSuccess(m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(m_rtv_heaps.ReleaseAndGetAddressOf())), "ERROR: CreateDescriptorHeap");
+
+		// バッファとディスクリプタの関連付け
+		m_back_buffers.resize(swap_chain_desc.BufferCount);
+		D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		for (int i = 0; i < swap_chain_desc.BufferCount; ++i)
+		{
+			m_device->CreateRenderTargetView(m_back_buffers[i], nullptr, handle);
+			handle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		}
 	}
 
 	MyDirect3D12::~MyDirect3D12()
