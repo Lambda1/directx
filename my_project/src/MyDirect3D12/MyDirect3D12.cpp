@@ -5,7 +5,12 @@ namespace mla
 	MyDirect3D12::MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name)
 	{
 		// アダプタの取得
-		CheckSuccess(CreateDXGIFactory(IID_PPV_ARGS(m_dxgi_factory.ReleaseAndGetAddressOf())), "ERROR: CreateDXGIFactory");
+#ifdef _DEBUG
+		EnableDebugLayer(); // デバッグレイヤの有効化
+		CheckSuccess(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(m_dxgi_factory.ReleaseAndGetAddressOf())), "ERROR: CreateDXGIFactory1");
+#else
+		CheckSuccess(CreateDXGIFactory1(IID_PPV_ARGS(m_dxgi_factory.ReleaseAndGetAddressOf())), "ERROR: CreateDXGIFactory1");
+#endif
 		WRL::ComPtr<IDXGIAdapter> adapter = GetHardwareAdapter(adapter_name);
 		// デバイスオブジェクトの作成
 		CheckSuccess(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_device.ReleaseAndGetAddressOf())), "ERROR: D3D12CreateDevice"); // MONZA
@@ -60,6 +65,15 @@ namespace mla
 	{
 	}
 
+	// デバッグレイヤの有効化
+	void MyDirect3D12::EnableDebugLayer()
+	{
+		ID3D12Debug* debug_layer = nullptr;
+		CheckSuccess(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_layer)), "ERROR: D3D12GetDebugInterface");
+		debug_layer->EnableDebugLayer();
+		debug_layer->Release();
+	}
+
 	// 画面クリア
 	void MyDirect3D12::ClearRenderTarget(const FLOAT *col)
 	{
@@ -74,7 +88,7 @@ namespace mla
 		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		const auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		rtv_h.ptr += (static_cast<SIZE_T>(bb_idx) * static_cast<SIZE_T>(rtv_inc_size));
-		m_cmd_list->OMSetRenderTargets(1, &rtv_h, true, nullptr);
+		m_cmd_list->OMSetRenderTargets(1, &rtv_h, false, nullptr);
 	}
 	// 描画終了処理
 	void MyDirect3D12::EndDraw()

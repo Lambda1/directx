@@ -25,12 +25,14 @@ namespace mla
 		MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name = L"Intel");
 		~MyDirect3D12();
 		
-		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
-		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
+		void EnableDebugLayer();
 
 		void ClearRenderTarget(const FLOAT *col);
 		void BeginDraw();
 		void EndDraw();
+		
+		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
+		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
 
 	private:
 		WRL::ComPtr<ID3D12Device> m_device;
