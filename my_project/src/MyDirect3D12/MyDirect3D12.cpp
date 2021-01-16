@@ -2,7 +2,8 @@
 
 namespace mla
 {
-	MyDirect3D12::MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name)
+	MyDirect3D12::MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name):
+		m_fence_value(0)
 	{
 		// アダプタの取得
 #ifdef _DEBUG
@@ -56,9 +57,13 @@ namespace mla
 		D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		for (UINT i = 0; i < swap_chain_desc.BufferCount; ++i)
 		{
+			CheckSuccess(m_dxgi_swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_back_buffers[i])), "ERROR: GetBuffer");
 			m_device->CreateRenderTargetView(m_back_buffers[i], nullptr, handle); // D3D12: Removing Device.
 			handle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
+
+		// フェンスの作成
+		CheckSuccess(m_device->CreateFence(m_fence_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_fence.ReleaseAndGetAddressOf())), "ERROR: CreateFence");
 	}
 
 	MyDirect3D12::~MyDirect3D12()
@@ -99,6 +104,17 @@ namespace mla
 		// コマンドリストの実行
 		ID3D12CommandList* cmd_lists[] = {m_cmd_list.Get()};
 		m_cmd_queue->ExecuteCommandLists(1, cmd_lists);
+
+		// GPUの処理待ち
+		m_cmd_queue->Signal(m_fence.Get(), ++m_fence_value);
+		if (m_fence->GetCompletedValue() != m_fence_value)
+		{
+			auto event = CreateEvent(nullptr, false, false, nullptr);
+			m_fence->SetEventOnCompletion(m_fence_value, event);
+
+			WaitForSingleObject(event, INFINITE);
+			CloseHandle(event);
+		}
 
 		// リセット
 		m_cmd_allocator->Reset();
