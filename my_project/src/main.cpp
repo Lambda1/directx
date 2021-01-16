@@ -78,7 +78,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		my_d3d.ClearRenderTarget(col);
 		my_d3d.EndDraw();
 		
-		my_d3d.GetSwapChain().Get()->Present(1, 0);
+		//my_d3d.GetSwapChain().Get()->Present(1, 0);
 
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{

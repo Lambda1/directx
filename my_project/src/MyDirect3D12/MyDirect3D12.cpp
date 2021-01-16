@@ -82,14 +82,33 @@ namespace mla
 	// 画面クリア
 	void MyDirect3D12::ClearRenderTarget(const FLOAT *col)
 	{
-		const auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		// バックバッファのインデックスを取得
+		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
+		
+		// rtvの位置計算
+		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
+		auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		rtv_h.ptr += (static_cast<SIZE_T>(bb_idx) * static_cast<SIZE_T>(rtv_inc_size));
+		
 		m_cmd_list->ClearRenderTargetView(rtv_h, col, 0, nullptr);
 	}
 	// 描画開始処理
 	void MyDirect3D12::BeginDraw()
 	{
-		// レンダーターゲットの設定
+		// バックバッファのインデックスを取得
 		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
+		
+		// リソースバリアの設定
+		D3D12_RESOURCE_BARRIER barrier_desc = {};
+		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier_desc.Transition.pResource = m_back_buffers[bb_idx];
+		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		m_cmd_list->ResourceBarrier(1, &barrier_desc);
+		
+		// レンダーターゲットの設定
 		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		const auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		rtv_h.ptr += (static_cast<SIZE_T>(bb_idx) * static_cast<SIZE_T>(rtv_inc_size));
@@ -98,6 +117,19 @@ namespace mla
 	// 描画終了処理
 	void MyDirect3D12::EndDraw()
 	{
+		// バックバッファのインデックスを取得
+		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
+		
+		// リソースバリアの設定
+		D3D12_RESOURCE_BARRIER barrier_desc = {};
+		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier_desc.Transition.pResource = m_back_buffers[bb_idx];
+		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		m_cmd_list->ResourceBarrier(1, &barrier_desc);
+
 		// クローズコマンド
 		m_cmd_list->Close();
 
@@ -111,14 +143,19 @@ namespace mla
 		{
 			auto event = CreateEvent(nullptr, false, false, nullptr);
 			m_fence->SetEventOnCompletion(m_fence_value, event);
-
-			WaitForSingleObject(event, INFINITE);
-			CloseHandle(event);
+			
+			if (event)
+			{
+				WaitForSingleObject(event, INFINITE);
+				CloseHandle(event);
+			}
 		}
 
 		// リセット
 		m_cmd_allocator->Reset();
 		m_cmd_list->Reset(m_cmd_allocator.Get(), nullptr);
+
+		m_dxgi_swap_chain->Present(1, 0);
 	}
 	
 	// コマンドリストの取得
