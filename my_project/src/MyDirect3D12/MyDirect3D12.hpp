@@ -26,6 +26,7 @@ namespace mla
 		~MyDirect3D12();
 		
 		void EnableDebugLayer();
+		void EnableDebugReportObject();
 
 		void ClearRenderTarget(const FLOAT *col);
 		void BeginDraw();
@@ -42,7 +43,7 @@ namespace mla
 		WRL::ComPtr<ID3D12GraphicsCommandList> m_cmd_list;
 		WRL::ComPtr<ID3D12CommandQueue> m_cmd_queue;
 		WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heaps;
-		std::vector<ID3D12Resource*> m_back_buffers;
+		std::vector<WRL::ComPtr<ID3D12Resource>> m_back_buffers;
 		WRL::ComPtr<ID3D12Fence> m_fence;
 		UINT64 m_fence_value;
 	};

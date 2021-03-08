@@ -15,7 +15,7 @@ namespace mla
 		WRL::ComPtr<IDXGIAdapter> adapter = GetHardwareAdapter(adapter_name);
 		// デバイスオブジェクトの作成
 		CheckSuccess(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_device.ReleaseAndGetAddressOf())), "ERROR: D3D12CreateDevice"); // MONZA
-		
+
 		// コマンドアロケータの作成
 		CheckSuccess(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(m_cmd_allocator.ReleaseAndGetAddressOf())), "ERROR: CreateCommandAllocator");
 		// コマンドリストの作成
@@ -58,16 +58,18 @@ namespace mla
 		for (UINT i = 0; i < swap_chain_desc.BufferCount; ++i)
 		{
 			CheckSuccess(m_dxgi_swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_back_buffers[i])), "ERROR: GetBuffer");
-			m_device->CreateRenderTargetView(m_back_buffers[i], nullptr, handle); // D3D12: Removing Device.
+			m_device->CreateRenderTargetView(m_back_buffers[i].Get(), nullptr, handle); // D3D12: Removing Device.
 			handle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
-
 		// フェンスの作成
 		CheckSuccess(m_device->CreateFence(m_fence_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_fence.ReleaseAndGetAddressOf())), "ERROR: CreateFence");
 	}
 
 	MyDirect3D12::~MyDirect3D12()
 	{
+#ifdef _DEBUG
+		//EnableDebugReportObject(); // デバッグレポートの有効化
+#endif
 	}
 
 	// デバッグレイヤの有効化
@@ -77,6 +79,16 @@ namespace mla
 		CheckSuccess(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_layer)), "ERROR: D3D12GetDebugInterface");
 		debug_layer->EnableDebugLayer();
 		debug_layer->Release();
+	}
+	// デバッグレポートの有効化
+	void MyDirect3D12::EnableDebugReportObject()
+	{
+		ID3D12DebugDevice* debugInterface;
+		if (SUCCEEDED(m_device.Get()->QueryInterface(&debugInterface)))
+		{
+			debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+			debugInterface->Release();
+		}
 	}
 
 	// 画面クリア
@@ -102,7 +114,7 @@ namespace mla
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		barrier_desc.Transition.pResource = m_back_buffers[bb_idx];
+		barrier_desc.Transition.pResource = m_back_buffers[bb_idx].Get();
 		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
@@ -124,7 +136,7 @@ namespace mla
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		barrier_desc.Transition.pResource = m_back_buffers[bb_idx];
+		barrier_desc.Transition.pResource = m_back_buffers[bb_idx].Get();
 		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
