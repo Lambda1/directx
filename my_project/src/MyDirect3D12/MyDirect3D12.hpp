@@ -43,6 +43,11 @@ namespace mla
 
 		void CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path, D3D12_GRAPHICS_PIPELINE_STATE_DESC *g_pipeline);
 
+		void SetPipelineState();
+		void SetGraphicsRootSignature(const WRL::ComPtr<ID3D12RootSignature> &root_signature);
+		void SetViewAndScissor();
+		void SetPrimitiveTopology(const D3D12_PRIMITIVE_TOPOLOGY& type);
+
 		WRL::ComPtr<ID3D12Device> GetDevice();
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
@@ -59,6 +64,9 @@ namespace mla
 		WRL::ComPtr<ID3D12Fence> m_fence;
 		WRL::ComPtr<ID3D12PipelineState> m_pipeline_state;
 		UINT64 m_fence_value;
+	
+		D3D12_VIEWPORT m_view_port;
+		D3D12_RECT m_scissor_rect;
 	};
 }
 

@@ -72,9 +72,9 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// 頂点データ
 	DirectX::XMFLOAT3 vertices[] =
 	{
-		{-1.0f, -1.0f, 0.0f},
-		{-1.0f,  1.0f, 0.0f},
-		{ 1.0f, -1.0f, 0.0f}
+		{-0.5f, -0.7f, 0.0f},
+		{ 0.0f,  0.7f, 0.0f},
+		{ 0.5f, -0.7f, 0.0f}
 	};
 	D3D12_HEAP_PROPERTIES heap_prop = {};
 	heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -125,6 +125,18 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		my_d3d.BeginDraw();
 		FLOAT col[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		my_d3d.ClearRenderTarget(col);
+		// パイプラインステート
+		my_d3d.SetPipelineState();
+		// ルートシグネチャ
+		my_d3d.GetCommandList()->SetGraphicsRootSignature(root_signature.Get());
+		// 領域
+		my_d3d.SetViewAndScissor();
+		// トポロジ
+		my_d3d.SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		// 頂点バッファ
+		my_d3d.GetCommandList()->IASetVertexBuffers(0, 1, &vb_view);
+		// 描画
+		my_d3d.GetCommandList()->DrawInstanced(3, 1, 0, 0);
 		my_d3d.EndDraw();
 
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))

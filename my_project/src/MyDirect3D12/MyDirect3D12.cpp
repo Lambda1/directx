@@ -63,6 +63,19 @@ namespace mla
 		}
 		// フェンスの作成
 		CheckSuccess(m_device->CreateFence(m_fence_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_fence.ReleaseAndGetAddressOf())), "ERROR: CreateFence");
+
+		// ビューポート
+		m_view_port.Width = static_cast<FLOAT>(window_width);
+		m_view_port.Height = static_cast<FLOAT>(window_height);
+		m_view_port.TopLeftX = 0;
+		m_view_port.TopLeftY = 0;
+		m_view_port.MaxDepth = 1.0f;
+		m_view_port.MinDepth = 0.0f;
+		// シザー矩形
+		m_scissor_rect.top = 0;
+		m_scissor_rect.left = 0;
+		m_scissor_rect.right = m_scissor_rect.left + static_cast<LONG>(window_width);
+		m_scissor_rect.bottom = m_scissor_rect.top + static_cast<LONG>(window_height);
 	}
 
 	MyDirect3D12::~MyDirect3D12()
@@ -173,13 +186,13 @@ namespace mla
 	// Blobエラー処理
 	void MyDirect3D12::ErrorBlob(WRL::ComPtr<ID3DBlob>& err_blob)
 	{
-			std::string msg;
-			msg.resize(err_blob->GetBufferSize());
-			std::copy_n(reinterpret_cast<char*>(err_blob->GetBufferPointer()), err_blob->GetBufferSize(), msg.begin());
-			std::cout << msg << std::endl;
-			std::exit(EXIT_FAILURE);
+		std::string msg;
+		msg.resize(err_blob->GetBufferSize());
+		std::copy_n(reinterpret_cast<char*>(err_blob->GetBufferPointer()), err_blob->GetBufferSize(), msg.begin());
+		std::cout << msg << std::endl;
+		std::exit(EXIT_FAILURE);
 	}
-	
+
 	// リソース作成
 	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc)
 	{
@@ -251,6 +264,28 @@ namespace mla
 
 		// パイプラインステート生成
 		CheckSuccess(m_device->CreateGraphicsPipelineState(g_pipeline, IID_PPV_ARGS(m_pipeline_state.ReleaseAndGetAddressOf())), "ERROR: CreateGraphicsPipelineState");
+	}
+
+	// パイプラインステート設定
+	void MyDirect3D12::SetPipelineState()
+	{
+		m_cmd_list->SetPipelineState(m_pipeline_state.Get());
+	}
+	// ルートシグネチャ設定
+	void MyDirect3D12::SetGraphicsRootSignature(const WRL::ComPtr<ID3D12RootSignature> &root_signature)
+	{
+		m_cmd_list->SetGraphicsRootSignature(root_signature.Get());
+	}
+	// ビュー，シザー矩形設定
+	void MyDirect3D12::SetViewAndScissor()
+	{
+		m_cmd_list->RSSetViewports(1, &m_view_port);
+		m_cmd_list->RSSetScissorRects(1, &m_scissor_rect);
+	}
+	// トポロジ設定
+	void MyDirect3D12::SetPrimitiveTopology(const D3D12_PRIMITIVE_TOPOLOGY &type)
+	{
+		m_cmd_list->IASetPrimitiveTopology(type);
 	}
 
 	// デバイス取得
