@@ -8,6 +8,7 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <DirectXMath.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -31,6 +32,8 @@ namespace mla
 		void ClearRenderTarget(const FLOAT *col);
 		void BeginDraw();
 		void EndDraw();
+
+		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES &heap_prop, const D3D12_RESOURCE_DESC &desc);
 		
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();

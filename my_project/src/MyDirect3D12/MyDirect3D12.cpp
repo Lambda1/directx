@@ -170,6 +170,14 @@ namespace mla
 		m_dxgi_swap_chain->Present(1, 0);
 	}
 	
+	// リソース作成
+	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc)
+	{
+		WRL::ComPtr<ID3D12Resource> buff = nullptr;
+		CheckSuccess(m_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buff)), "ERROR: CreateCommitedResource");
+		return buff;
+	}
+
 	// コマンドリストの取得
 	WRL::ComPtr<ID3D12GraphicsCommandList> MyDirect3D12::GetCommandList()
 	{

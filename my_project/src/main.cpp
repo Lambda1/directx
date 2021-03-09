@@ -67,7 +67,30 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ShowWindow(hwnd, SW_SHOW);
 
 	// D3D12初期化
-	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height};
+	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"NVIDIA"};
+
+	// 頂点データ
+	DirectX::XMFLOAT3 vertices[] =
+	{
+		{-1.0f, -1.0f, 0.0f},
+		{-1.0f,  1.0f, 0.0f},
+		{ 1.0f, -1.0f, 0.0f}
+	};
+	D3D12_HEAP_PROPERTIES heap_prop = {};
+	heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	D3D12_RESOURCE_DESC resc_desc = {};
+	resc_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resc_desc.Width = sizeof(vertices);
+	resc_desc.Height = 1;
+	resc_desc.DepthOrArraySize = 1;
+	resc_desc.MipLevels = 1;
+	resc_desc.Format = DXGI_FORMAT_UNKNOWN;
+	resc_desc.SampleDesc.Count = 1;
+	resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	resc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
 
 	// メイン処理
 	MSG msg = {};
@@ -77,8 +100,6 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		FLOAT col[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		my_d3d.ClearRenderTarget(col);
 		my_d3d.EndDraw();
-		
-		//my_d3d.GetSwapChain().Get()->Present(1, 0);
 
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
