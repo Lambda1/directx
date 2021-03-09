@@ -72,9 +72,10 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// 頂点データ
 	DirectX::XMFLOAT3 vertices[] =
 	{
-		{-0.5f, -0.7f, 0.0f},
-		{ 0.0f,  0.7f, 0.0f},
-		{ 0.5f, -0.7f, 0.0f}
+		{-0.4f, -0.7f, 0.0f},
+		{-0.4f,  0.7f, 0.0f},
+		{ 0.4f, -0.7f, 0.0f},
+		{ 0.4f,  0.7f, 0.0f}
 	};
 	D3D12_HEAP_PROPERTIES heap_prop = {};
 	heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -92,12 +93,28 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	resc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
 	// 頂点データマッピング
-	my_d3d.Mapping(vertices, sizeof(vertices), vert_buff);
+	my_d3d.Mapping<DirectX::XMFLOAT3>(vertices, sizeof(vertices), vert_buff);
 	// 頂点バッファビューの作成
 	D3D12_VERTEX_BUFFER_VIEW vb_view = {};
 	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
 	vb_view.SizeInBytes = sizeof(vertices);
 	vb_view.StrideInBytes = sizeof(vertices[0]);
+	
+	// 頂点インデックス
+	unsigned short indices[] =
+	{
+		0, 1, 2,
+		2, 1, 3
+	};
+	resc_desc.Width = sizeof(indices);
+	auto ind_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
+	// マッピング
+	my_d3d.Mapping<unsigned short>(indices, sizeof(indices), ind_buff);
+	// インデックスバッファビュー作成
+	D3D12_INDEX_BUFFER_VIEW ib_view = {};
+	ib_view.BufferLocation = ind_buff->GetGPUVirtualAddress();
+	ib_view.SizeInBytes = sizeof(indices);
+	ib_view.Format = DXGI_FORMAT_R16_UINT;
 
 	// ルートシグネチャ設定
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> root_signature = nullptr;
@@ -135,8 +152,10 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		my_d3d.SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		// 頂点バッファ
 		my_d3d.GetCommandList()->IASetVertexBuffers(0, 1, &vb_view);
+		// インデックスバッファ
+		my_d3d.GetCommandList()->IASetIndexBuffer(&ib_view);
 		// 描画
-		my_d3d.GetCommandList()->DrawInstanced(3, 1, 0, 0);
+		my_d3d.GetCommandList()->DrawIndexedInstanced(6, 1, 0, 0, 0);
 		my_d3d.EndDraw();
 
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
