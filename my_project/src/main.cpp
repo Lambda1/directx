@@ -91,6 +91,8 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 	resc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
+	// 頂点データマッピング
+	my_d3d.Mapping(vertices, sizeof(vertices), vert_buff);
 
 	// メイン処理
 	MSG msg = {};

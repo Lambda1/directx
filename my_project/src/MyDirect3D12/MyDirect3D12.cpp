@@ -177,6 +177,14 @@ namespace mla
 		CheckSuccess(m_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buff)), "ERROR: CreateCommitedResource");
 		return buff;
 	}
+	// マッピング
+	void MyDirect3D12::Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff)
+	{
+		DirectX::XMFLOAT3* map = nullptr;
+		CheckSuccess(buff->Map(0, nullptr, reinterpret_cast<void**>(&map)), "ERROR: Map");
+		std::memcpy(map, data, data_size);
+		buff->Unmap(0, nullptr);
+	}
 
 	// コマンドリストの取得
 	WRL::ComPtr<ID3D12GraphicsCommandList> MyDirect3D12::GetCommandList()

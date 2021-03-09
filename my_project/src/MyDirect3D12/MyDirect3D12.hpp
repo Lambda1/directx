@@ -19,22 +19,23 @@ namespace mla
 	class MyDirect3D12
 	{
 	private:
-		void CheckSuccess(const HRESULT &is_ok, const std::string &err_msg);
-		
-		WRL::ComPtr<IDXGIAdapter> GetHardwareAdapter(const std::wstring &adapter_name);
+		void CheckSuccess(const HRESULT& is_ok, const std::string& err_msg);
+
+		WRL::ComPtr<IDXGIAdapter> GetHardwareAdapter(const std::wstring& adapter_name);
 	public:
-		MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name = L"Intel");
+		MyDirect3D12(const HWND& hwnd, const int& window_width, const int& window_height, const std::wstring& adapter_name = L"Intel");
 		~MyDirect3D12();
-		
+
 		void EnableDebugLayer();
 		void EnableDebugReportObject();
 
-		void ClearRenderTarget(const FLOAT *col);
+		void ClearRenderTarget(const FLOAT* col);
 		void BeginDraw();
 		void EndDraw();
 
-		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES &heap_prop, const D3D12_RESOURCE_DESC &desc);
-		
+		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc);
+		void Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff);
+
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
 
