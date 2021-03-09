@@ -39,8 +39,9 @@ namespace mla
 		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc);
 		void Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff);
 
-		void CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path);
+		void CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path, D3D12_GRAPHICS_PIPELINE_STATE_DESC *g_pipeline);
 
+		WRL::ComPtr<ID3D12Device> GetDevice();
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
 
@@ -54,6 +55,7 @@ namespace mla
 		WRL::ComPtr<ID3D12DescriptorHeap> m_rtv_heaps;
 		std::vector<WRL::ComPtr<ID3D12Resource>> m_back_buffers;
 		WRL::ComPtr<ID3D12Fence> m_fence;
+		WRL::ComPtr<ID3D12PipelineState> m_pipeline_state;
 		UINT64 m_fence_value;
 	};
 }

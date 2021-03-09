@@ -2,7 +2,7 @@
 
 namespace mla
 {
-	MyDirect3D12::MyDirect3D12(const HWND &hwnd, const int &window_width, const int &window_height, const std::wstring &adapter_name):
+	MyDirect3D12::MyDirect3D12(const HWND& hwnd, const int& window_width, const int& window_height, const std::wstring& adapter_name) :
 		m_fence_value(0)
 	{
 		// アダプタの取得
@@ -92,16 +92,16 @@ namespace mla
 	}
 
 	// 画面クリア
-	void MyDirect3D12::ClearRenderTarget(const FLOAT *col)
+	void MyDirect3D12::ClearRenderTarget(const FLOAT* col)
 	{
 		// バックバッファのインデックスを取得
 		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
-		
+
 		// rtvの位置計算
 		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		rtv_h.ptr += (static_cast<SIZE_T>(bb_idx) * static_cast<SIZE_T>(rtv_inc_size));
-		
+
 		m_cmd_list->ClearRenderTargetView(rtv_h, col, 0, nullptr);
 	}
 	// 描画開始処理
@@ -109,7 +109,7 @@ namespace mla
 	{
 		// バックバッファのインデックスを取得
 		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
-		
+
 		// リソースバリアの設定
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -119,7 +119,7 @@ namespace mla
 		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		m_cmd_list->ResourceBarrier(1, &barrier_desc);
-		
+
 		// レンダーターゲットの設定
 		auto rtv_h = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		const auto rtv_inc_size = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -131,7 +131,7 @@ namespace mla
 	{
 		// バックバッファのインデックスを取得
 		auto bb_idx = m_dxgi_swap_chain->GetCurrentBackBufferIndex();
-		
+
 		// リソースバリアの設定
 		D3D12_RESOURCE_BARRIER barrier_desc = {};
 		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -146,7 +146,7 @@ namespace mla
 		m_cmd_list->Close();
 
 		// コマンドリストの実行
-		ID3D12CommandList* cmd_lists[] = {m_cmd_list.Get()};
+		ID3D12CommandList* cmd_lists[] = { m_cmd_list.Get() };
 		m_cmd_queue->ExecuteCommandLists(1, cmd_lists);
 
 		// GPUの処理待ち
@@ -155,7 +155,7 @@ namespace mla
 		{
 			auto event = CreateEvent(nullptr, false, false, nullptr);
 			m_fence->SetEventOnCompletion(m_fence_value, event);
-			
+
 			if (event)
 			{
 				WaitForSingleObject(event, INFINITE);
@@ -169,7 +169,7 @@ namespace mla
 
 		m_dxgi_swap_chain->Present(1, 0);
 	}
-	
+
 	// リソース作成
 	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc)
 	{
@@ -178,7 +178,7 @@ namespace mla
 		return buff;
 	}
 	// マッピング
-	void MyDirect3D12::Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff)
+	void MyDirect3D12::Mapping(const DirectX::XMFLOAT3* data, const size_t& data_size, WRL::ComPtr<ID3D12Resource>& buff)
 	{
 		DirectX::XMFLOAT3* map = nullptr;
 		CheckSuccess(buff->Map(0, nullptr, reinterpret_cast<void**>(&map)), "ERROR: Map");
@@ -187,9 +187,9 @@ namespace mla
 	}
 
 	// 簡易版シェーダ作成
-	void MyDirect3D12::CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path)
+	void MyDirect3D12::CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path, D3D12_GRAPHICS_PIPELINE_STATE_DESC* g_pipeline)
 	{
-		auto err_msg = [](WRL::ComPtr<ID3DBlob> &err_blob)
+		auto err_msg = [](WRL::ComPtr<ID3DBlob>& err_blob)
 		{
 			std::string msg;
 			msg.resize(err_blob->GetBufferSize());
@@ -206,8 +206,56 @@ namespace mla
 		WRL::ComPtr<ID3DBlob> ps_blob = nullptr;
 		HRESULT ps_result = D3DCompileFromFile(ps_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "basicPS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &ps_blob, &err_blob);
 		if (ps_result != S_OK) { err_msg(err_blob); }
+
+		// 頂点レイアウト
+		D3D12_INPUT_ELEMENT_DESC input_layout[] =
+		{
+			{
+				"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+				D3D12_APPEND_ALIGNED_ELEMENT,
+				D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0
+			},
+		};
+		// パイプラインステートにシェーダを設定
+		g_pipeline->VS.pShaderBytecode = vs_blob->GetBufferPointer();
+		g_pipeline->VS.BytecodeLength = vs_blob->GetBufferSize();
+		g_pipeline->PS.pShaderBytecode = ps_blob->GetBufferPointer();
+		g_pipeline->PS.BytecodeLength = ps_blob->GetBufferSize();
+		// サンプルマスク，ラスタライザステート設定
+		g_pipeline->SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+		g_pipeline->RasterizerState.MultisampleEnable = false;
+		g_pipeline->RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		g_pipeline->RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+		g_pipeline->RasterizerState.DepthClipEnable = true;
+		// ブレンドステート設定
+		D3D12_RENDER_TARGET_BLEND_DESC rt_blend_desc = {};
+		rt_blend_desc.BlendEnable = false;
+		rt_blend_desc.LogicOpEnable = false;
+		rt_blend_desc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		g_pipeline->BlendState.AlphaToCoverageEnable = false;
+		g_pipeline->BlendState.IndependentBlendEnable = false;
+		g_pipeline->BlendState.RenderTarget[0] = rt_blend_desc;
+		// 入力レイアウト設定
+		g_pipeline->InputLayout.pInputElementDescs = input_layout;
+		g_pipeline->InputLayout.NumElements = _countof(input_layout);
+		g_pipeline->IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+		g_pipeline->PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		// レンダターゲット設定
+		g_pipeline->NumRenderTargets = 1;
+		g_pipeline->RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		// AA設定
+		g_pipeline->SampleDesc.Count = 1;
+		g_pipeline->SampleDesc.Quality = 0;
+
+		// パイプラインステート生成
+		CheckSuccess(m_device->CreateGraphicsPipelineState(g_pipeline, IID_PPV_ARGS(m_pipeline_state.ReleaseAndGetAddressOf())), "ERROR: CreateGraphicsPipelineState");
 	}
 
+	// デバイス取得
+	WRL::ComPtr<ID3D12Device> MyDirect3D12::GetDevice()
+	{
+		return m_device;
+	}
 	// コマンドリストの取得
 	WRL::ComPtr<ID3D12GraphicsCommandList> MyDirect3D12::GetCommandList()
 	{
@@ -221,7 +269,7 @@ namespace mla
 
 	// private 
 	// エラーチェック処理
-	void MyDirect3D12::CheckSuccess(const HRESULT& is_ok, const std::string &err_msg)
+	void MyDirect3D12::CheckSuccess(const HRESULT& is_ok, const std::string& err_msg)
 	{
 		if (FAILED(is_ok))
 		{
@@ -245,7 +293,7 @@ namespace mla
 		{
 			DXGI_ADAPTER_DESC adpt_desc{};
 			adpt->GetDesc(&adpt_desc);
-			
+
 			std::wstring adpt_str = adpt_desc.Description;
 			if (!adapter && adpt_str.find(adapter_name) != std::wstring::npos) { adapter = adpt; }
 		}
