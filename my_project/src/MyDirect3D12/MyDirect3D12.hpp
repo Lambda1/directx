@@ -4,14 +4,17 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <d3dcompiler.h>
 #include <DirectXMath.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 namespace mla
 {
@@ -35,6 +38,8 @@ namespace mla
 
 		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc);
 		void Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff);
+
+		void CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path);
 
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();

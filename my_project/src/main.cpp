@@ -69,6 +69,9 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// D3D12初期化
 	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"NVIDIA"};
 
+	// シェーダコンパイル
+	my_d3d.CompileBasicShader(L"./src/Shader/BasicVertexShader.hlsl", L"./src/Shader/BasicPixelShader.hlsl");
+
 	// 頂点データ
 	DirectX::XMFLOAT3 vertices[] =
 	{
@@ -93,6 +96,20 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
 	// 頂点データマッピング
 	my_d3d.Mapping(vertices, sizeof(vertices), vert_buff);
+	// 頂点バッファビューの作成
+	D3D12_VERTEX_BUFFER_VIEW vb_view = {};
+	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
+	vb_view.SizeInBytes = sizeof(vertices);
+	vb_view.StrideInBytes = sizeof(vertices[0]);
+	// 頂点レイアウト
+	D3D12_INPUT_ELEMENT_DESC input_layout[] =
+	{
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0
+		},
+	};
 
 	// メイン処理
 	MSG msg = {};

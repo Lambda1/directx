@@ -27,4 +27,8 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="src\Shader\BasicVertexShader.hlsl" />
+    <FxCompile Include="src\Shader\BasicPixelShader.hlsl" />
+  </ItemGroup>
 </Project>
