@@ -36,6 +36,8 @@ namespace mla
 		void BeginDraw();
 		void EndDraw();
 
+		void ErrorBlob(WRL::ComPtr<ID3DBlob> &err_blob);
+
 		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc);
 		void Mapping(const DirectX::XMFLOAT3 *data, const size_t &data_size, WRL::ComPtr<ID3D12Resource>& buff);
 

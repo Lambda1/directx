@@ -99,9 +99,22 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	vb_view.SizeInBytes = sizeof(vertices);
 	vb_view.StrideInBytes = sizeof(vertices[0]);
 
-	// パイプラインステートの設定
+	// ルートシグネチャ設定
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> root_signature = nullptr;
+	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
+	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	// バイナリコード作成
+	Microsoft::WRL::ComPtr<ID3DBlob> error_blob = nullptr;
+	Microsoft::WRL::ComPtr<ID3DBlob> root_sig_blob = nullptr;
+	HRESULT root_sig_result = D3D12SerializeRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1_0, root_sig_blob.ReleaseAndGetAddressOf(), error_blob.ReleaseAndGetAddressOf());
+	if (root_sig_result != S_OK) { my_d3d.ErrorBlob(error_blob); }
+	// ルートシグネチャ作成
+	root_sig_result = my_d3d.GetDevice()->CreateRootSignature(0, root_sig_blob->GetBufferPointer(), root_sig_blob->GetBufferSize(), IID_PPV_ARGS(root_signature.ReleaseAndGetAddressOf()));
+	if (root_sig_result != S_OK) { std::exit(EXIT_FAILURE); }
+
+	// パイプラインステート設定
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC g_pipeline = {};
-	g_pipeline.pRootSignature = nullptr;
+	g_pipeline.pRootSignature = root_signature.Get();
 	// シェーダコンパイル
 	my_d3d.CompileBasicShader(L"./src/Shader/BasicVertexShader.hlsl", L"./src/Shader/BasicPixelShader.hlsl", &g_pipeline);
 

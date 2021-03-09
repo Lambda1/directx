@@ -170,6 +170,16 @@ namespace mla
 		m_dxgi_swap_chain->Present(1, 0);
 	}
 
+	// Blobエラー処理
+	void MyDirect3D12::ErrorBlob(WRL::ComPtr<ID3DBlob>& err_blob)
+	{
+			std::string msg;
+			msg.resize(err_blob->GetBufferSize());
+			std::copy_n(reinterpret_cast<char*>(err_blob->GetBufferPointer()), err_blob->GetBufferSize(), msg.begin());
+			std::cout << msg << std::endl;
+			std::exit(EXIT_FAILURE);
+	}
+	
 	// リソース作成
 	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc)
 	{
@@ -189,23 +199,15 @@ namespace mla
 	// 簡易版シェーダ作成
 	void MyDirect3D12::CompileBasicShader(const std::wstring& vs_path, const std::wstring& ps_path, D3D12_GRAPHICS_PIPELINE_STATE_DESC* g_pipeline)
 	{
-		auto err_msg = [](WRL::ComPtr<ID3DBlob>& err_blob)
-		{
-			std::string msg;
-			msg.resize(err_blob->GetBufferSize());
-			std::copy_n(reinterpret_cast<char*>(err_blob->GetBufferPointer()), err_blob->GetBufferSize(), msg.begin());
-			std::cout << msg << std::endl;
-			std::exit(EXIT_FAILURE);
-		};
 		WRL::ComPtr<ID3DBlob> err_blob = nullptr;
 		// 頂点シェーダ
 		WRL::ComPtr<ID3DBlob> vs_blob = nullptr;
-		HRESULT vs_result = D3DCompileFromFile(vs_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "basicVS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vs_blob, &err_blob);
-		if (vs_result != S_OK) { err_msg(err_blob); }
+		HRESULT vs_result = D3DCompileFromFile(vs_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "basicVS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, vs_blob.ReleaseAndGetAddressOf(), err_blob.ReleaseAndGetAddressOf());
+		if (vs_result != S_OK) { ErrorBlob(err_blob); }
 		// ピクセルシェーダ
 		WRL::ComPtr<ID3DBlob> ps_blob = nullptr;
-		HRESULT ps_result = D3DCompileFromFile(ps_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "basicPS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &ps_blob, &err_blob);
-		if (ps_result != S_OK) { err_msg(err_blob); }
+		HRESULT ps_result = D3DCompileFromFile(ps_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "basicPS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, ps_blob.ReleaseAndGetAddressOf(), err_blob.ReleaseAndGetAddressOf());
+		if (ps_result != S_OK) { ErrorBlob(err_blob); }
 
 		// 頂点レイアウト
 		D3D12_INPUT_ELEMENT_DESC input_layout[] =
