@@ -1,10 +1,13 @@
 #ifndef __VERTEX_HPP__
 #define __VERTEX_HPP__
 
+#include <DirectXMath.h>
+
 namespace mla
 {
-	class Vertex
+	struct Vertex
 	{
+
 	};
 }
 
