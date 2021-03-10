@@ -145,9 +145,12 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MyDirect3D12\MyDirect3D12.cpp" />
+    <ClCompile Include="src\Vertex\Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="resource.h" />
     <ClInclude Include="src\MyDirect3D12\MyDirect3D12.hpp" />
+    <ClInclude Include="src\Vertex\Vertex.hpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="src\Shader\BasicPixelShader.hlsl">
@@ -170,6 +173,9 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="my_project.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
