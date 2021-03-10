@@ -21,9 +21,6 @@
     <ClCompile Include="src\MyDirect3D12\MyDirect3D12.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\Vertex\Vertex.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\MyDirect3D12\MyDirect3D12.hpp">
@@ -44,5 +41,8 @@
     <ResourceCompile Include="my_project.rc">
       <Filter>リソース ファイル</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\Shader\BasicShaderHeader.hlsli" />
   </ItemGroup>
 </Project>

@@ -145,7 +145,6 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MyDirect3D12\MyDirect3D12.cpp" />
-    <ClCompile Include="src\Vertex\Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -176,6 +175,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="my_project.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\Shader\BasicShaderHeader.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

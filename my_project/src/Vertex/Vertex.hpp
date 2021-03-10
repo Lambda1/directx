@@ -7,7 +7,8 @@ namespace mla
 {
 	struct Vertex
 	{
-
+		DirectX::XMFLOAT3 m_pos;
+		DirectX::XMFLOAT2 m_uv;
 	};
 }
 
