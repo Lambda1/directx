@@ -68,12 +68,12 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ShowWindow(hwnd, SW_SHOW);
 
 	// D3D12初期化
-	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"NVIDIA"};
+	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"Intel"};
 
 	// テクスチャデータ
 	struct TexRGBA
 	{
-		unsigned short r, g, b, a;
+		unsigned char r, g, b, a;
 	};
 	std::vector<TexRGBA> texture_data(256 * 256);
 	for (auto data : texture_data)
@@ -81,7 +81,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		data.r = rand() % 256;
 		data.g = rand() % 256;
 		data.b = rand() % 256;
-		data.a = 1;
+		data.a = 255;
 	}
 	// テクスチャバッファ作成
 	D3D12_HEAP_PROPERTIES tex_heap_prop = {};
@@ -119,7 +119,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MipLevels = 1;
-	my_d3d.GetDevice()->CreateShaderResourceView(tex_buff.Get(), &srv_desc, tex_desc_heap->GetCPUDescriptorHandleForHeapStart());
+	my_d3d.GetDevice()->CreateShaderResourceView(tex_buff.Get(), &srv_desc, tex_desc_heap-> GetCPUDescriptorHandleForHeapStart());
 	// サンプラ
 	D3D12_STATIC_SAMPLER_DESC sampler_desc = {};
 	sampler_desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -226,6 +226,10 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		my_d3d.SetPipelineState();
 		// ルートシグネチャ
 		my_d3d.GetCommandList()->SetGraphicsRootSignature(root_signature.Get());
+		// ディスクリプタヒープ
+		my_d3d.GetCommandList()->SetDescriptorHeaps(1, tex_desc_heap.GetAddressOf());
+		// ディスクリプタヒープ関連付け
+		my_d3d.GetCommandList()->SetGraphicsRootDescriptorTable(0, tex_desc_heap->GetGPUDescriptorHandleForHeapStart());
 		// 領域
 		my_d3d.SetViewAndScissor();
 		// トポロジ
