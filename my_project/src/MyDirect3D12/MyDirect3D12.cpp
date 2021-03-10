@@ -194,10 +194,10 @@ namespace mla
 	}
 
 	// ÉäÉ\Å[ÉXçÏê¨
-	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc)
+	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES &state)
 	{
 		WRL::ComPtr<ID3D12Resource> buff = nullptr;
-		CheckSuccess(m_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buff)), "ERROR: CreateCommitedResource");
+		CheckSuccess(m_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, state, nullptr, IID_PPV_ARGS(&buff)), "ERROR: CreateCommitedResource");
 		return buff;
 	}
 

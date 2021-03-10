@@ -174,9 +174,6 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="my_project.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="src\Shader\BasicShaderHeader.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -38,7 +38,7 @@ namespace mla
 
 		void ErrorBlob(WRL::ComPtr<ID3DBlob>& err_blob);
 
-		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc);
+		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES &state);
 
 		// マッピング
 		template<class T>

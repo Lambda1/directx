@@ -70,6 +70,68 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// D3D12初期化
 	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"NVIDIA"};
 
+	// テクスチャデータ
+	struct TexRGBA
+	{
+		unsigned short r, g, b, a;
+	};
+	std::vector<TexRGBA> texture_data(256 * 256);
+	for (auto data : texture_data)
+	{
+		data.r = rand() % 256;
+		data.g = rand() % 256;
+		data.b = rand() % 256;
+		data.a = 1;
+	}
+	// テクスチャバッファ作成
+	D3D12_HEAP_PROPERTIES tex_heap_prop = {};
+	tex_heap_prop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	tex_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	tex_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	tex_heap_prop.CreationNodeMask = 0;
+	tex_heap_prop.VisibleNodeMask = 0;
+	D3D12_RESOURCE_DESC tex_resc_desc = {};
+	tex_resc_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	tex_resc_desc.Width = 256;
+	tex_resc_desc.Height = 256;
+	tex_resc_desc.DepthOrArraySize = 1;
+	tex_resc_desc.SampleDesc.Count = 1;
+	tex_resc_desc.SampleDesc.Quality = 0;
+	tex_resc_desc.MipLevels = 1;
+	tex_resc_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	tex_resc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	tex_resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto tex_buff = my_d3d.CreateCommitedResource(tex_heap_prop, tex_resc_desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	// テクスチャ転送
+	HRESULT tex_result = tex_buff->WriteToSubresource(0, nullptr, texture_data.data(), sizeof(TexRGBA) * 256, sizeof(TexRGBA) * texture_data.size());
+
+	// シェーダ用ディスクリプタヒープ
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> tex_desc_heap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC desc_heap_desc = {};
+	desc_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	desc_heap_desc.NodeMask = 0;
+	desc_heap_desc.NumDescriptors = 1;
+	desc_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	HRESULT shader_desc_result = my_d3d.GetDevice()->CreateDescriptorHeap(&desc_heap_desc, IID_PPV_ARGS(tex_desc_heap.ReleaseAndGetAddressOf()));
+	// シェーダリソースビュー作成
+	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+	srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srv_desc.Texture2D.MipLevels = 1;
+	my_d3d.GetDevice()->CreateShaderResourceView(tex_buff.Get(), &srv_desc, tex_desc_heap->GetCPUDescriptorHandleForHeapStart());
+	// サンプラ
+	D3D12_STATIC_SAMPLER_DESC sampler_desc = {};
+	sampler_desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler_desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	sampler_desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler_desc.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler_desc.MinLOD = 0.0f;
+	sampler_desc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
 	// 頂点データ
 	mla::Vertex vertices[] =
 	{
@@ -92,7 +154,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	resc_desc.SampleDesc.Count = 1;
 	resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 	resc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
+	auto vert_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc, D3D12_RESOURCE_STATE_GENERIC_READ);
 	// 頂点データマッピング
 	my_d3d.Mapping<mla::Vertex>(vertices, sizeof(vertices), vert_buff);
 	// 頂点バッファビューの作成
@@ -108,7 +170,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		2, 1, 3
 	};
 	resc_desc.Width = sizeof(indices);
-	auto ind_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc);
+	auto ind_buff = my_d3d.CreateCommitedResource(heap_prop, resc_desc, D3D12_RESOURCE_STATE_GENERIC_READ);
 	// マッピング
 	my_d3d.Mapping<unsigned short>(indices, sizeof(indices), ind_buff);
 	// インデックスバッファビュー作成
@@ -117,10 +179,27 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ib_view.SizeInBytes = sizeof(indices);
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
 
+	// ディスクリプタレンジ
+	D3D12_DESCRIPTOR_RANGE desc_tbl_range = {};
+	desc_tbl_range.NumDescriptors = 1;
+	desc_tbl_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	desc_tbl_range.BaseShaderRegister = 0;
+	desc_tbl_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// ルートパラメータ
+	D3D12_ROOT_PARAMETER root_param = {};
+	root_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	root_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	root_param.DescriptorTable.pDescriptorRanges = &desc_tbl_range;
+	root_param.DescriptorTable.NumDescriptorRanges = 1;
 	// ルートシグネチャ設定
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> root_signature = nullptr;
 	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
 	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	root_signature_desc.pParameters = &root_param;
+	root_signature_desc.NumParameters = 1;
+	root_signature_desc.pStaticSamplers = &sampler_desc;
+	root_signature_desc.NumStaticSamplers = 1;
 	// バイナリコード作成
 	Microsoft::WRL::ComPtr<ID3DBlob> error_blob = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> root_sig_blob = nullptr;
