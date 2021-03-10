@@ -76,7 +76,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		unsigned char r, g, b, a;
 	};
 	std::vector<TexRGBA> texture_data(256 * 256);
-	for (auto data : texture_data)
+	for (auto &data : texture_data)
 	{
 		data.r = rand() % 256;
 		data.g = rand() % 256;
@@ -212,6 +212,17 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// パイプラインステート設定
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC g_pipeline = {};
 	g_pipeline.pRootSignature = root_signature.Get();
+	/*
+	g_pipeline.RasterizerState.FrontCounterClockwise = false;
+	g_pipeline.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+	g_pipeline.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+	g_pipeline.RasterizerState.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+	g_pipeline.RasterizerState.AntialiasedLineEnable = false;
+	g_pipeline.RasterizerState.ForcedSampleCount = 0;
+	g_pipeline.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+	g_pipeline.DepthStencilState.DepthEnable = false;
+	g_pipeline.DepthStencilState.StencilEnable = false;
+	*/
 	// シェーダコンパイル
 	my_d3d.CompileBasicShader(L"./src/Shader/BasicVertexShader.hlsl", L"./src/Shader/BasicPixelShader.hlsl", &g_pipeline);
 
