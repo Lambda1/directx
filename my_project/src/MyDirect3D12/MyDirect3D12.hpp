@@ -38,7 +38,7 @@ namespace mla
 
 		void ErrorBlob(WRL::ComPtr<ID3DBlob>& err_blob);
 
-		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES &state);
+		WRL::ComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES& state);
 
 		// マッピング
 		template<class T>
@@ -59,7 +59,11 @@ namespace mla
 
 		WRL::ComPtr<ID3D12Device> GetDevice();
 		WRL::ComPtr<ID3D12GraphicsCommandList> GetCommandList();
+		WRL::ComPtr<ID3D12CommandQueue> GetCommandQueue();
 		WRL::ComPtr<IDXGISwapChain4> GetSwapChain();
+
+		void WaitFence();
+		void CmdReset();
 
 	private:
 		WRL::ComPtr<ID3D12Device> m_device;

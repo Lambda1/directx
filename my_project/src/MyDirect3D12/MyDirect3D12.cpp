@@ -52,13 +52,18 @@ namespace mla
 		rtv_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		CheckSuccess(m_device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(m_rtv_heaps.ReleaseAndGetAddressOf())), "ERROR: CreateDescriptorHeap");
 
+		// SRGB用レンダターゲットビュー
+		D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+		rtv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
 		// バッファとディスクリプタの関連付け
 		m_back_buffers.resize(swap_chain_desc.BufferCount);
 		D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtv_heaps->GetCPUDescriptorHandleForHeapStart();
 		for (UINT i = 0; i < swap_chain_desc.BufferCount; ++i)
 		{
 			CheckSuccess(m_dxgi_swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_back_buffers[i])), "ERROR: GetBuffer");
-			m_device->CreateRenderTargetView(m_back_buffers[i].Get(), nullptr, handle); // D3D12: Removing Device.
+			m_device->CreateRenderTargetView(m_back_buffers[i].Get(), &rtv_desc, handle);
 			handle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
 		// フェンスの作成
@@ -102,6 +107,28 @@ namespace mla
 			debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 			debugInterface->Release();
 		}
+	}
+
+	void MyDirect3D12::WaitFence()
+	{
+		// GPUの処理待ち
+		m_cmd_queue->Signal(m_fence.Get(), ++m_fence_value);
+		if (m_fence->GetCompletedValue() != m_fence_value)
+		{
+			auto event = CreateEvent(nullptr, false, false, nullptr);
+			m_fence->SetEventOnCompletion(m_fence_value, event);
+
+			if (event)
+			{
+				WaitForSingleObject(event, INFINITE);
+				CloseHandle(event);
+			}
+		}
+	}
+	void MyDirect3D12::CmdReset()
+	{
+		m_cmd_allocator->Reset();
+		m_cmd_list->Reset(m_cmd_allocator.Get(), nullptr);
 	}
 
 	// 画面クリア
@@ -163,22 +190,10 @@ namespace mla
 		m_cmd_queue->ExecuteCommandLists(1, cmd_lists);
 
 		// GPUの処理待ち
-		m_cmd_queue->Signal(m_fence.Get(), ++m_fence_value);
-		if (m_fence->GetCompletedValue() != m_fence_value)
-		{
-			auto event = CreateEvent(nullptr, false, false, nullptr);
-			m_fence->SetEventOnCompletion(m_fence_value, event);
-
-			if (event)
-			{
-				WaitForSingleObject(event, INFINITE);
-				CloseHandle(event);
-			}
-		}
+		WaitFence();
 
 		// リセット
-		m_cmd_allocator->Reset();
-		m_cmd_list->Reset(m_cmd_allocator.Get(), nullptr);
+		CmdReset();
 
 		m_dxgi_swap_chain->Present(1, 0);
 	}
@@ -194,7 +209,7 @@ namespace mla
 	}
 
 	// リソース作成
-	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES &state)
+	WRL::ComPtr<ID3D12Resource> MyDirect3D12::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heap_prop, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES& state)
 	{
 		WRL::ComPtr<ID3D12Resource> buff = nullptr;
 		CheckSuccess(m_device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, state, nullptr, IID_PPV_ARGS(&buff)), "ERROR: CreateCommitedResource");
@@ -254,7 +269,7 @@ namespace mla
 		g_pipeline->PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		// レンダターゲット設定
 		g_pipeline->NumRenderTargets = 1;
-		g_pipeline->RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		g_pipeline->RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 		// AA設定
 		g_pipeline->SampleDesc.Count = 1;
 		g_pipeline->SampleDesc.Quality = 0;
@@ -269,7 +284,7 @@ namespace mla
 		m_cmd_list->SetPipelineState(m_pipeline_state.Get());
 	}
 	// ルートシグネチャ設定
-	void MyDirect3D12::SetGraphicsRootSignature(const WRL::ComPtr<ID3D12RootSignature> &root_signature)
+	void MyDirect3D12::SetGraphicsRootSignature(const WRL::ComPtr<ID3D12RootSignature>& root_signature)
 	{
 		m_cmd_list->SetGraphicsRootSignature(root_signature.Get());
 	}
@@ -280,7 +295,7 @@ namespace mla
 		m_cmd_list->RSSetScissorRects(1, &m_scissor_rect);
 	}
 	// トポロジ設定
-	void MyDirect3D12::SetPrimitiveTopology(const D3D12_PRIMITIVE_TOPOLOGY &type)
+	void MyDirect3D12::SetPrimitiveTopology(const D3D12_PRIMITIVE_TOPOLOGY& type)
 	{
 		m_cmd_list->IASetPrimitiveTopology(type);
 	}
@@ -299,6 +314,11 @@ namespace mla
 	WRL::ComPtr<IDXGISwapChain4> MyDirect3D12::GetSwapChain()
 	{
 		return m_dxgi_swap_chain;
+	}
+	// コマンドキューの取得
+	WRL::ComPtr<ID3D12CommandQueue> MyDirect3D12::GetCommandQueue()
+	{
+		return m_cmd_queue;
 	}
 
 	// private 

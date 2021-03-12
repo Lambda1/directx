@@ -76,20 +76,9 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// テクスチャデータ
 	DirectX::TexMetadata meta = {};
 	DirectX::ScratchImage scratch_img = {};
-	HRESULT result = DirectX::LoadFromWICFile(L"./img/textest.png", DirectX::WIC_FLAGS_NONE, &meta, scratch_img);
+	HRESULT result = DirectX::LoadFromWICFile(L"./img/textest200.png", DirectX::WIC_FLAGS_NONE, &meta, scratch_img);
 	auto img = scratch_img.GetImage(0, 0, 0);
-	struct TexRGBA
-	{
-		unsigned char r, g, b, a;
-	};
-	std::vector<TexRGBA> texture_data(256 * 256);
-	for (auto &data : texture_data)
-	{
-		data.r = rand() % 256;
-		data.g = rand() % 256;
-		data.b = rand() % 256;
-		data.a = 255;
-	}
+	
 	// 頂点データ
 	mla::Vertex vertices[] =
 	{
@@ -137,27 +126,58 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ib_view.SizeInBytes = sizeof(indices);
 	ib_view.Format = DXGI_FORMAT_R16_UINT;
 
+	// 中間バッファとしてのアップロードヒープ設定
+	D3D12_HEAP_PROPERTIES up_heap_prop = {};
+	up_heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	up_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	up_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	up_heap_prop.CreationNodeMask = 0;
+	up_heap_prop.VisibleNodeMask = 0;
+	D3D12_RESOURCE_DESC up_resc_desc = {};
+	up_resc_desc.Format = DXGI_FORMAT_UNKNOWN;
+	up_resc_desc.Width = img->slicePitch;
+	up_resc_desc.Height = 1;
+	up_resc_desc.DepthOrArraySize = 1;
+	up_resc_desc.SampleDesc.Count = 1;
+	up_resc_desc.SampleDesc.Quality = 0;
+	up_resc_desc.MipLevels = 1;
+	up_resc_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	up_resc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	up_resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	auto up_buff = my_d3d.CreateCommitedResource(up_heap_prop, up_resc_desc, D3D12_RESOURCE_STATE_GENERIC_READ);
 	// テクスチャバッファ作成
 	D3D12_HEAP_PROPERTIES tex_heap_prop = {};
-	tex_heap_prop.Type = D3D12_HEAP_TYPE_CUSTOM;
-	tex_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	tex_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	tex_heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+	tex_heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	tex_heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 	tex_heap_prop.CreationNodeMask = 0;
 	tex_heap_prop.VisibleNodeMask = 0;
-	D3D12_RESOURCE_DESC tex_resc_desc = {};
-	tex_resc_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	tex_resc_desc.Width = 256;
-	tex_resc_desc.Height = 256;
-	tex_resc_desc.DepthOrArraySize = 1;
-	tex_resc_desc.SampleDesc.Count = 1;
-	tex_resc_desc.SampleDesc.Quality = 0;
-	tex_resc_desc.MipLevels = 1;
-	tex_resc_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	tex_resc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	tex_resc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	auto tex_buff = my_d3d.CreateCommitedResource(tex_heap_prop, tex_resc_desc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	up_resc_desc.Format = meta.format;
+	up_resc_desc.Width = meta.width;
+	up_resc_desc.Height = meta.height;
+	up_resc_desc.DepthOrArraySize = meta.arraySize;
+	up_resc_desc.MipLevels = meta.mipLevels;
+	up_resc_desc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(meta.dimension);
+	up_resc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	auto tex_buff = my_d3d.CreateCommitedResource(tex_heap_prop, up_resc_desc, D3D12_RESOURCE_STATE_COPY_DEST);
 	// テクスチャ転送
-	HRESULT tex_result = tex_buff->WriteToSubresource(0, nullptr, texture_data.data(), sizeof(TexRGBA) * 256, sizeof(TexRGBA) * texture_data.size());
+	uint8_t* map_for_img = nullptr;
+	my_d3d.Mapping<uint8_t>(img->pixels, img->slicePitch, up_buff);
+	// テクスチャリソースへコピー
+	D3D12_TEXTURE_COPY_LOCATION src = {};
+	src.pResource = up_buff.Get();
+	src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	src.PlacedFootprint.Offset = 0;
+	src.PlacedFootprint.Footprint.Width = meta.width;
+	src.PlacedFootprint.Footprint.Height = meta.height;
+	src.PlacedFootprint.Footprint.Depth = meta.depth;
+	src.PlacedFootprint.Footprint.RowPitch = img->rowPitch;
+	src.PlacedFootprint.Footprint.Format = img->format;
+	D3D12_TEXTURE_COPY_LOCATION dst = {};
+	dst.pResource = tex_buff.Get();
+	dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	dst.SubresourceIndex = 0;
+
 	// シェーダ用ディスクリプタヒープ
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> tex_desc_heap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC desc_heap_desc = {};
@@ -168,7 +188,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	HRESULT shader_desc_result = my_d3d.GetDevice()->CreateDescriptorHeap(&desc_heap_desc, IID_PPV_ARGS(tex_desc_heap.ReleaseAndGetAddressOf()));
 	// シェーダリソースビュー作成
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-	srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srv_desc.Format = meta.format;
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MipLevels = 1;
@@ -184,7 +204,6 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	sampler_desc.MinLOD = 0.0f;
 	sampler_desc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-
 
 	// ディスクリプタレンジ
 	D3D12_DESCRIPTOR_RANGE desc_tbl_range = {};
@@ -233,12 +252,35 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	// シェーダコンパイル
 	my_d3d.CompileBasicShader(L"./src/Shader/BasicVertexShader.hlsl", L"./src/Shader/BasicPixelShader.hlsl", &g_pipeline);
 
+	{
+		// テクスチャ用リソースへコピー
+		my_d3d.GetCommandList()->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+		//バリア
+		D3D12_RESOURCE_BARRIER barrier_desc = {};
+		barrier_desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier_desc.Transition.pResource = tex_buff.Get();
+		barrier_desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier_desc.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+		barrier_desc.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		// 転送
+		my_d3d.GetCommandList()->ResourceBarrier(1, &barrier_desc);
+		my_d3d.GetCommandList()->Close();
+		// コマンドリスト実行
+		ID3D12CommandList* cmd_lists[] = { my_d3d.GetCommandList().Get() };
+		my_d3d.GetCommandQueue()->ExecuteCommandLists(1, cmd_lists);
+		// フェンス待ち
+		my_d3d.WaitFence();
+		// リセット
+		my_d3d.CmdReset();
+	}
+	
 	// メイン処理
 	MSG msg = {};
 	while (true)
 	{
 		my_d3d.BeginDraw();
-		FLOAT col[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		FLOAT col[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		my_d3d.ClearRenderTarget(col);
 		// パイプラインステート
 		my_d3d.SetPipelineState();
