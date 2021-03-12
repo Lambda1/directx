@@ -1,7 +1,10 @@
+#include <Windows.h>
+#include <DirectXTex.h>
+
 #include "MyDirect3D12/MyDirect3D12.hpp"
 #include "Vertex/Vertex.hpp"
 
-#include <Windows.h>
+#pragma comment(lib, "DirectXTex.lib")
 
 #include <iostream>
 
@@ -71,6 +74,10 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"Intel"};
 
 	// テクスチャデータ
+	DirectX::TexMetadata meta = {};
+	DirectX::ScratchImage scratch_img = {};
+	HRESULT result = DirectX::LoadFromWICFile(L"./img/textest.png", DirectX::WIC_FLAGS_NONE, &meta, scratch_img);
+	auto img = scratch_img.GetImage(0, 0, 0);
 	struct TexRGBA
 	{
 		unsigned char r, g, b, a;
