@@ -19,7 +19,7 @@ LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 // ウィンドウクラス初期化
-HWND InitializeWindowClass(WNDCLASSEX *wnd_class_ex, const LPCWSTR &app_name, const LPCWSTR &title_name, const int &window_width, const int &window_height)
+HWND InitializeWindowClass(WNDCLASSEX* wnd_class_ex, const LPCWSTR& app_name, const LPCWSTR& title_name, const int& window_width, const int& window_height)
 {
 	// ウィンドウクラスの登録
 	wnd_class_ex->cbSize = sizeof(WNDCLASSEX);
@@ -71,14 +71,14 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	ShowWindow(hwnd, SW_SHOW);
 
 	// D3D12初期化
-	mla::MyDirect3D12 my_d3d{hwnd, window_width, window_height, L"Intel"};
+	mla::MyDirect3D12 my_d3d{ hwnd, window_width, window_height, L"Intel" };
 
 	// テクスチャデータ
 	DirectX::TexMetadata meta = {};
 	DirectX::ScratchImage scratch_img = {};
 	HRESULT result = DirectX::LoadFromWICFile(L"./img/textest200.png", DirectX::WIC_FLAGS_NONE, &meta, scratch_img);
 	auto img = scratch_img.GetImage(0, 0, 0);
-	
+
 	// 頂点データ
 	mla::Vertex vertices[] =
 	{
@@ -109,7 +109,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	vb_view.BufferLocation = vert_buff->GetGPUVirtualAddress();
 	vb_view.SizeInBytes = sizeof(vertices);
 	vb_view.StrideInBytes = sizeof(vertices[0]);
-	
+
 	// 頂点インデックス
 	unsigned short indices[] =
 	{
@@ -135,7 +135,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	up_heap_prop.VisibleNodeMask = 0;
 	D3D12_RESOURCE_DESC up_resc_desc = {};
 	up_resc_desc.Format = DXGI_FORMAT_UNKNOWN;
-	up_resc_desc.Width = img->slicePitch;
+	up_resc_desc.Width = my_d3d.AlignmentSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * img->height;
 	up_resc_desc.Height = 1;
 	up_resc_desc.DepthOrArraySize = 1;
 	up_resc_desc.SampleDesc.Count = 1;
@@ -162,7 +162,19 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	auto tex_buff = my_d3d.CreateCommitedResource(tex_heap_prop, up_resc_desc, D3D12_RESOURCE_STATE_COPY_DEST);
 	// テクスチャ転送
 	uint8_t* map_for_img = nullptr;
-	my_d3d.Mapping<uint8_t>(img->pixels, img->slicePitch, up_buff);
+	up_buff->Map(0, nullptr, reinterpret_cast<void**>(&map_for_img));
+	std::memcpy(map_for_img, img->pixels, img->slicePitch);
+	up_buff->Unmap(0, nullptr);
+	// 辻褄合わせ
+	auto src_address = img->pixels;
+	auto row_pitch = my_d3d.AlignmentSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+	for (int y = 0; y < img->height; ++y)
+	{
+		std::copy_n(src_address, row_pitch, map_for_img);
+		src_address += img->rowPitch;
+		map_for_img += row_pitch;
+	}
+
 	// テクスチャリソースへコピー
 	D3D12_TEXTURE_COPY_LOCATION src = {};
 	src.pResource = up_buff.Get();
@@ -171,7 +183,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	src.PlacedFootprint.Footprint.Width = meta.width;
 	src.PlacedFootprint.Footprint.Height = meta.height;
 	src.PlacedFootprint.Footprint.Depth = meta.depth;
-	src.PlacedFootprint.Footprint.RowPitch = img->rowPitch;
+	src.PlacedFootprint.Footprint.RowPitch = my_d3d.AlignmentSize(img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 	src.PlacedFootprint.Footprint.Format = img->format;
 	D3D12_TEXTURE_COPY_LOCATION dst = {};
 	dst.pResource = tex_buff.Get();
@@ -192,7 +204,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MipLevels = 1;
-	my_d3d.GetDevice()->CreateShaderResourceView(tex_buff.Get(), &srv_desc, tex_desc_heap-> GetCPUDescriptorHandleForHeapStart());
+	my_d3d.GetDevice()->CreateShaderResourceView(tex_buff.Get(), &srv_desc, tex_desc_heap->GetCPUDescriptorHandleForHeapStart());
 	// サンプラ
 	D3D12_STATIC_SAMPLER_DESC sampler_desc = {};
 	sampler_desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -274,7 +286,7 @@ int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_  HINSTANCE h_prev_instanc
 		// リセット
 		my_d3d.CmdReset();
 	}
-	
+
 	// メイン処理
 	MSG msg = {};
 	while (true)

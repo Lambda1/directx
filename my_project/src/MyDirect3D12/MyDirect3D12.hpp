@@ -65,6 +65,11 @@ namespace mla
 		void WaitFence();
 		void CmdReset();
 
+		size_t AlignmentSize(const size_t& size, const size_t alignment)
+		{
+			return size + alignment - size % alignment;
+		}
+
 	private:
 		WRL::ComPtr<ID3D12Device> m_device;
 		WRL::ComPtr<IDXGIFactory6> m_dxgi_factory;
