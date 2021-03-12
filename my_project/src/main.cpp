@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <DirectXTex.h>
+#include <d3dx12.h>
 
 #include "MyDirect3D12/MyDirect3D12.hpp"
 #include "Vertex/Vertex.hpp"
