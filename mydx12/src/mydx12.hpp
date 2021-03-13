@@ -27,7 +27,12 @@ namespace mla
 		const UINT m_frame_buffer_count; // バッファリング数
 
 	protected:
+		Microsoft::WRL::ComPtr<ID3D12Device> m_device;
 	private:
+
+		void EnableDebug(const bool &enable_gbv);
+		void EnableDebugLayer(Microsoft::WRL::ComPtr<ID3D12Debug> &debug);
+		void EnableGPUBasedValidation(const Microsoft::WRL::ComPtr<ID3D12Debug> &debug);
 	};
 }
 
