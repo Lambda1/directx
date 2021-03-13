@@ -63,12 +63,13 @@ HWND InitWin(const HINSTANCE& h_instance, const std::wstring &class_name, const 
 int WINAPI WinMain(_In_ HINSTANCE h_instance, _In_opt_ HINSTANCE h_prev_instance, _In_ LPSTR lp_cmd_line, _In_ int m_cmd_show)
 {
 	// ウィンドウ初期化
-	HWND hwnd = InitWin(h_instance, L"MyDirectX12", 640, 480, L"DirectX12");
+	const UINT window_width = 640, window_height = 480;
+	HWND hwnd = InitWin(h_instance, L"MyDirectX12", window_width, window_height, L"DirectX12");
 	// ウィンドウ表示
 	ShowWindow(hwnd, m_cmd_show);
 
 	// DirectX12初期化
-	mla::mydx12 mdx12{};
+	mla::mydx12 mdx12{window_width, window_height};
 	mdx12.Init(hwnd);
 
 	// メイン処理
